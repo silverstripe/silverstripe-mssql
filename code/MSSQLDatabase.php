@@ -129,9 +129,7 @@ class MSSQLDatabase extends Database {
 	}
 	
 	public function getGeneratedID($table) {
-		$result=DB::query("SELECT last_value FROM \"{$table}_ID_seq\";");
-		$row=$result->first(); 
- 		return $row['last_value'];
+		return $this->query("SELECT @@IDENTITY FROM \"$table\"")->value();
 	}
 	
 	/**
@@ -215,6 +213,7 @@ class MSSQLDatabase extends Database {
 				$fulltexts
 				primary key (\"ID\")
 			); $indexSchemas");
+		$this->query("SET IDENTITY_INSERT \"$tableName\" ON");
 	}
 
 	/**
@@ -654,7 +653,7 @@ class MSSQLDatabase extends Database {
 		if($asDbValue)
 			return Array('data_type'=>'text');
 		else
-			return 'text';
+			return 'text null';
 	}
 	
 	/**
@@ -685,7 +684,7 @@ class MSSQLDatabase extends Database {
 		if($asDbValue)
 			return Array('data_type'=>'character varying', 'character_maximum_length'=>'255');
 		else
-			return 'varchar(' . $values['precision'] . ')';
+			return 'varchar(' . $values['precision'] . ') null';
 	}
 	
 	/*
