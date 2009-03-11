@@ -113,7 +113,8 @@ class MSSQLDatabase extends Database {
 			$starttime = microtime(true);
 		}
 				
-		echo 'sql: ' . $sql . '<br>';
+		//echo 'sql: ' . $sql . '<br>';
+		//Debug::backtrace();
 		
 		$handle = mssql_query($sql, $this->dbConn);
 		
@@ -213,7 +214,6 @@ class MSSQLDatabase extends Database {
 				$fulltexts
 				primary key (\"ID\")
 			); $indexSchemas");
-		$this->query("SET IDENTITY_INSERT \"$tableName\" ON");
 	}
 
 	/**
@@ -273,15 +273,6 @@ class MSSQLDatabase extends Database {
 		$pattern = '/^([\w()]+)\s?((?:not\s)?null)?\s?(default\s[\w\']+)?\s?(check\s[\w()\'",\s]+)?$/i';
 		preg_match($pattern, $colSpec, $matches);
 		
-		/*if (isset($matches)) {
-			echo "sql:$colSpec <pre>";
-			print_r($matches);
-			echo '</pre>';
-		}*/
-		
-		//if($matches[1]=='serial8')
-		//	return '';
-			
 		if(isset($matches[1])) {
 			$alterCol = "ALTER COLUMN \"$colName\" TYPE $matches[1]\n";
 		
@@ -296,8 +287,8 @@ class MSSQLDatabase extends Database {
 			
 			// SET check constraint (The constraint HAS to be dropped)
 			if(!empty($matches[4])) {
-					$alterCol .= ",\nDROP CONSTRAINT \"{$tableName}_{$colName}_check\"";
-					$alterCol .= ",\nADD CONSTRAINT \"{$tableName}_{$colName}_check\" $matches[4]";
+				$alterCol .= ",\nDROP CONSTRAINT \"{$tableName}_{$colName}_check\"";
+				$alterCol .= ",\nADD CONSTRAINT \"{$tableName}_{$colName}_check\" $matches[4]";
 			}
 		}
 		
@@ -434,6 +425,10 @@ class MSSQLDatabase extends Database {
 				return 'create unique index ix_' . $tableName . '_' . $indexName . " ON \"" . $tableName . "\" (\"" . $indexSpec['value'] . "\");";
 		}
 		
+	}
+	
+	function getDbSqlDefinition($tableName, $indexName, $indexSpec){
+		return $indexName;
 	}
 	
 	/**
@@ -636,7 +631,7 @@ class MSSQLDatabase extends Database {
 		if($asDbValue)
 			return Array('data_type'=>'datetime without time zone');
 		else
-			return 'datetime';
+			return 'datetime default CURRENT_TIMESTAMP';
 	}
 	
 	/**
@@ -722,8 +717,11 @@ class MSSQLDatabase extends Database {
 	 *
 	 * @return string
 	 */
-	function IdColumn($asDbValue=false){
-		return 'bigint identity(1,1)';
+	function IdColumn($asDbValue=false, $hasAutoIncPK=true){
+		if($hasAutoIncPK)
+			return 'bigint identity(1,1)';
+		else return 'bigint';
+		
 	}
 	
 	/**
@@ -742,6 +740,15 @@ class MSSQLDatabase extends Database {
 		return array('SiteTree','Page');
 	}
 
+	/**
+	 * Because NOW() doesn't always work...
+	 * MSSQL, I'm looking at you
+	 *
+	 */
+	function now(){
+		return 'CURRENT_TIMESTAMP';
+	}
+	
 	/**
 	 * Convert a SQLQuery object into a SQL statement
 	 * @todo There is a lot of duplication between this and MySQLDatabase::sqlQueryToString().  Perhaps they could both call a common
@@ -786,6 +793,18 @@ class MSSQLDatabase extends Database {
 		*/
 		
 		return $text;
+	}
+	
+	/*
+	 * This will return text which has been escaped in a database-friendly manner
+	 * Using PHP's addslashes method won't work in MSSQL
+	 */
+	function addslashes($value){
+		$value=stripslashes($value);
+    	$value=str_replace("'","''",$value);
+    	$value=str_replace("\0","[NULL]",$value);
+
+    	return $value;
 	}
 }
 
