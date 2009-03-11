@@ -40,6 +40,8 @@ class MSSQLDatabase extends Database {
 	public function __construct($parameters) {
 		//assumes that the server and dbname will always be provided:
 		$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password']);
+		$this->active = mssql_select_db($parameters['database'], $this->dbConn);
+		$this->database = $parameters['database'];
 		
 		if(!$this->dbConn) {
 			$this->databaseError("Couldn't connect to MS SQL database");
@@ -544,7 +546,7 @@ class MSSQLDatabase extends Database {
 		//$parts=Array('datatype'=>'date');
 		//DB::requireField($this->tableName, $this->name, "date");
 
-		return 'date';
+		return 'date null';
 	}
 	
 	/**
@@ -631,7 +633,7 @@ class MSSQLDatabase extends Database {
 		if($asDbValue)
 			return Array('data_type'=>'datetime without time zone');
 		else
-			return 'datetime default CURRENT_TIMESTAMP';
+			return 'datetime null';
 	}
 	
 	/**
@@ -722,6 +724,13 @@ class MSSQLDatabase extends Database {
 			return 'bigint identity(1,1)';
 		else return 'bigint';
 		
+	}
+	
+	/**
+	 * Returns the SQL command to get all the tables in this database
+	 */
+	function allTablesSQL(){
+		return "SELECT name FROM {$GLOBALS['database']}..sysobjects WHERE xtype = 'U';";
 	}
 	
 	/**
