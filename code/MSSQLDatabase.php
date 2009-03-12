@@ -242,9 +242,6 @@ class MSSQLDatabase extends Database {
 			}
 		}
 		
-		//DB ABSTRACTION: we need to change the constraints to be a separate 'add' command,
-		//see http://www.postgresql.org/docs/8.1/static/sql-altertable.html
-		
 		if($alteredIndexes) foreach($alteredIndexes as $k => $v) {
 			$alterList[] .= "DROP INDEX \"$k\"";
 			$alterList[] .= "ADD ". $this->getIndexSqlDefinition($tableName, $k, $v);
@@ -363,10 +360,34 @@ class MSSQLDatabase extends Database {
 		
 		$output = array();
 		if($fields) foreach($fields as $field) {
-			switch($field){
-				case 'bigint':
-					//We will assume that this is the ID column:
-					$output['column_name']=$this->IdColumn();
+			switch($field['data_type']){
+				case 'varchar':
+					//Check to see if there's a constraint attached to this column:
+					//$constraint=$this->query("SELECT conname,pg_catalog.pg_get_constraintdef(r.oid, true) FROM pg_catalog.pg_constraint r WHERE r.contype = 'c' AND conname='" . $table . '_' . $field['column_name'] . "_check' ORDER BY 1;")->first();
+					$constraint=$this->query("SELECT CHECK_CLAUSE, COLUMN_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$table' AND COLUMN_NAME='" . $field['column_name'] . "';")->first();
+					if($constraint){
+						//Now we need to break this constraint text into bits so we can see what we have:
+						//Examples:
+						//([PasswordEncryption] = 'crc32b' OR [PasswordEncryption] = 'crc32' OR [PasswordEncryption] = 'adler32' OR [PasswordEncryption] = 'gost' OR [PasswordEncryption] = 'snefru' OR [PasswordEncryption] = 'whirlpool' OR [PasswordEncryption] = 'ripemd320' OR [PasswordEncryption] = 'ripemd256' OR [PasswordEncryption] = 'ripemd160' OR [PasswordEncryption] = 'ripemd128' OR [PasswordEncryption] = 'sha512' OR [PasswordEncryption] = 'sha384' OR [PasswordEncryption] = 'sha256' OR [PasswordEncryption] = 'sha1' OR [PasswordEncryption] = 'md5' OR [PasswordEncryption] = 'md4' OR [PasswordEncryption] = 'md2' OR [PasswordEncryption] = 'none')
+						//([ClassName] = 'Member')
+						
+						//TODO: replace all this with a regular expression!
+						$value=$constraint['CHECK_CLAUSE'];
+						
+						$segments=explode(' OR [', $value);
+						$constraints=Array();
+						foreach($segments as $this_segment){
+							$bits=explode(' = ', $this_segment);
+							
+							for($i=1; $i<sizeof($bits); $i+=2)
+								array_unshift($constraints, substr(rtrim($bits[$i], ')'), 1, -1));
+							
+						}
+						$default=substr($field['column_default'], 2, -2);
+						$field['data_type']=$this->enum(Array('default'=>$default, 'name'=>$field['column_name'], 'enums'=>$constraints));
+					}
+					
+					$output[$field['column_name']]=$field;
 					break;
 				default:
 					$output[$field['column_name']] = $field;
@@ -407,7 +428,6 @@ class MSSQLDatabase extends Database {
 		}
 		
 		return $indexSpec;
-		//return '';
 	}
 	
 	protected function getIndexSqlDefinition($tableName, $indexName, $indexSpec) {
@@ -531,7 +551,11 @@ class MSSQLDatabase extends Database {
 	public function boolean($values, $asDbValue=false){
 		//Annoyingly, we need to do a good ol' fashioned switch here:
 		($values['default']) ? $default='1' : $default='0';
-		return 'bit not null default ' . $default;
+		
+		if($asDbValue)
+			return 'bit';
+		else
+			return 'bit not null default ' . $default;
 	}
 	
 	/**
@@ -541,12 +565,11 @@ class MSSQLDatabase extends Database {
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
-	public function date($values){
-		//For reference, this is what typically gets passed to this function:
-		//$parts=Array('datatype'=>'date');
-		//DB::requireField($this->tableName, $this->name, "date");
-
-		return 'date null';
+	public function date($values, $asDbValue=false){
+		if($asDbValue)
+			return 'date';
+		else
+			return 'date null';
 	}
 	
 	/**
@@ -556,10 +579,6 @@ class MSSQLDatabase extends Database {
 	 * @return string
 	 */
 	public function decimal($values, $asDbValue=false){
-		//For reference, this is what typically gets passed to this function:
-		//$parts=Array('datatype'=>'decimal', 'precision'=>"$this->wholeSize,$this->decimalSize");
-		//DB::requireField($this->tableName, $this->name, "decimal($this->wholeSize,$this->decimalSize)");
-
 		// Avoid empty strings being put in the db
 		if($values['precision'] == '') {
 			$precision = 1;
@@ -568,7 +587,7 @@ class MSSQLDatabase extends Database {
 		}
 		
 		if($asDbValue)
-			return Array('data_type'=>'numeric', 'numeric_precision'=>'9');
+			return Array('data_type'=>'decimal', 'numeric_precision'=>'9,2');
 		else return 'decimal(' . $precision . ') not null';
 	}
 	
@@ -594,12 +613,8 @@ class MSSQLDatabase extends Database {
 	 * @return string
 	 */
 	public function float($values, $asDbValue=false){
-		//For reference, this is what typically gets passed to this function:
-		//$parts=Array('datatype'=>'float');
-		//DB::requireField($this->tableName, $this->name, "float");
-		
 		if($asDbValue)
-			return Array('data_type'=>'double precision');
+			return Array('data_type'=>'float');
 		else return 'float';
 	}
 	
@@ -611,7 +626,6 @@ class MSSQLDatabase extends Database {
 	 */
 	public function int($values, $asDbValue=false){
 		//We'll be using an 8 digit precision to keep it in line with the serial8 datatype for ID columns
-		
 		if($asDbValue)
 			return Array('data_type'=>'numeric', 'numeric_precision'=>'8');
 		else
@@ -626,12 +640,8 @@ class MSSQLDatabase extends Database {
 	 * @return string
 	 */
 	public function ssdatetime($values, $asDbValue=false){
-		//For reference, this is what typically gets passed to this function:
-		//$parts=Array('datatype'=>'datetime');
-		//DB::requireField($this->tableName, $this->name, $values);
-
 		if($asDbValue)
-			return Array('data_type'=>'datetime without time zone');
+			return Array('data_type'=>'datetime');
 		else
 			return 'datetime null';
 	}
@@ -643,10 +653,6 @@ class MSSQLDatabase extends Database {
 	 * @return string
 	 */
 	public function text($values, $asDbValue=false){
-		//For reference, this is what typically gets passed to this function:
-		//$parts=Array('datatype'=>'mediumtext', 'character set'=>'utf8', 'collate'=>'utf8_general_ci');
-		//DB::requireField($this->tableName, $this->name, "mediumtext character set utf8 collate utf8_general_ci");
-		
 		if($asDbValue)
 			return Array('data_type'=>'text');
 		else
@@ -661,10 +667,6 @@ class MSSQLDatabase extends Database {
 	 * @return string
 	 */
 	public function time($values){
-		//For reference, this is what typically gets passed to this function:
-		//$parts=Array('datatype'=>'time');
-		//DB::requireField($this->tableName, $this->name, "time");
-		
 		return 'time';
 	}
 	
@@ -675,11 +677,8 @@ class MSSQLDatabase extends Database {
 	 * @return string
 	 */
 	public function varchar($values, $asDbValue=false){
-		//For reference, this is what typically gets passed to this function:
-		//$parts=Array('datatype'=>'varchar', 'precision'=>$this->size, 'character set'=>'utf8', 'collate'=>'utf8_general_ci');
-		//DB::requireField($this->tableName, $this->name, "varchar($this->size) character set utf8 collate utf8_general_ci");
 		if($asDbValue)
-			return Array('data_type'=>'character varying', 'character_maximum_length'=>'255');
+			return Array('data_type'=>'varchar', 'character_maximum_length'=>'255');
 		else
 			return 'varchar(' . $values['precision'] . ') null';
 	}
@@ -720,10 +719,14 @@ class MSSQLDatabase extends Database {
 	 * @return string
 	 */
 	function IdColumn($asDbValue=false, $hasAutoIncPK=true){
-		if($hasAutoIncPK)
-			return 'bigint identity(1,1)';
-		else return 'bigint';
 		
+		if($asDbValue)
+			return 'bigint';
+		else {
+			if($hasAutoIncPK)
+				return 'bigint identity(1,1)';
+			else return 'bigint';
+		}
 	}
 	
 	/**
