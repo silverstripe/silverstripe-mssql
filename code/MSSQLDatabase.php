@@ -55,8 +55,26 @@ class MSSQLDatabase extends Database {
 		
 		// Configure the connection
 		$this->query('SET QUOTED_IDENTIFIER ON');
+		
+		//Enable full text search.
+		$this->createFullTextCatalog();
 	}
 	
+	/**
+	 * This will set up the full text search capabilities.
+	 * Theoretically, you don't need to 'enable' it every time...
+	 *
+	 * TODO: make this a _config.php setting
+	 */
+	function createFullTextCatalog(){
+			
+		$this->query("exec sp_fulltext_database 'enable';");
+		
+		$result=$this->query("SELECT name FROM sys.fulltext_catalogs;");
+		if(!$result)
+			$this->query("CREATE FULLTEXT CATALOG {$GLOBALS['database']};");
+		
+	}
 	/**
 	 * Not implemented, needed for PDO
 	 */
@@ -192,30 +210,17 @@ class MSSQLDatabase extends Database {
 		$fieldSchemas = $indexSchemas = "";
 		if($fields) foreach($fields as $k => $v) $fieldSchemas .= "\"$k\" $v,\n";
 		
-		//if($indexes) foreach($indexes as $k => $v) $indexSchemas .= $this->getIndexSqlDefinition($k, $v) . ",\n";
-		//we need to generate indexes like this: CREATE INDEX IX_vault_to_export ON vault (to_export);
-		
-		//If we have a fulltext search request, then we need to create a special column
-		//for GiST searches
-		$fulltexts='';
-		
-		/*
-		foreach($indexes as $name=>$this_index){
-			if($this_index['type']=='fulltext'){
-				//For full text search, we need to create a column for the index 
-				$fulltexts .= "\"ts_$name\" tsvector, ";
-				
-			}
-		}
-		*/
-		
-		//if($indexes) foreach($indexes as $k => $v) $indexSchemas .= $this->getIndexSqlDefinition($tableName, $k, $v) . "\n";
-		
 		$this->query("CREATE TABLE \"$tableName\" (
 				$fieldSchemas
-				$fulltexts
 				primary key (\"ID\")
-			); $indexSchemas");
+			);");
+
+		//we need to generate indexes like this: CREATE INDEX IX_vault_to_export ON vault (to_export);
+		//This needs to be done AFTER the table creation, so we can set up the fulltext indexes correctly
+		if($indexes) foreach($indexes as $k => $v) $indexSchemas .= $this->getIndexSqlDefinition($tableName, $k, $v) . "\n";
+		 
+		$this->query($indexSchemas);
+		
 	}
 
 	/**
@@ -231,7 +236,6 @@ class MSSQLDatabase extends Database {
 		
 		$alterList = array();
 		if($newFields) foreach($newFields as $k => $v) $alterList[] .= "ADD \"$k\" $v";
-		//if($newIndexes) foreach($newIndexes as $k => $v) $alterList[] .= "ADD " . $this->getIndexSqlDefinition($tableName, $k, $v);
 		
 		if($alteredFields) {
 			foreach($alteredFields as $k => $v) {
@@ -242,15 +246,38 @@ class MSSQLDatabase extends Database {
 			}
 		}
 		
-		if($alteredIndexes) foreach($alteredIndexes as $k => $v) {
-			$alterList[] .= "DROP INDEX \"$k\"";
-			$alterList[] .= "ADD ". $this->getIndexSqlDefinition($tableName, $k, $v);
+		//DB ABSTRACTION: we need to change the constraints to be a separate 'add' command,
+		//see http://www.postgresql.org/docs/8.1/static/sql-altertable.html
+		$alterIndexList=Array();
+		if($alteredIndexes) foreach($alteredIndexes as $v) {
+			
+			if($v['type']!='fulltext'){
+				if(is_array($v))
+					$alterIndexList[] = 'DROP INDEX ix_' . strtolower($tableName) . '_' . strtolower($v['value']) . ' ON ' . $tableName . ';';
+				else
+					$alterIndexList[] = 'DROP INDEX ix_' . strtolower($tableName) . '_' . strtolower(trim($v, '()')) . ' ON ' . $tableName . ';';
+							
+				if(is_array($v))
+					$k=$v['value'];
+				else $k=trim($v, '()');
+				
+				$alterIndexList[] = $this->getIndexSqlDefinition($tableName, $k, $v);
+			}
+ 		}
+ 		
+ 		//Add the new indexes:
+ 		if($newIndexes) foreach($newIndexes as $k=>$v){
+ 			$alterIndexList[] = $this->getIndexSqlDefinition($tableName, $k, $v);
  		}
 
  		if($alterList) {
 			$alterations = implode(",\n", $alterList);
 			$this->query("ALTER TABLE \"$tableName\" " . $alterations);
 		}
+		
+		foreach($alterIndexList as $alteration)
+			if($alteration!='')
+				$this->query($alteration);
 	}
 	
 	/*
@@ -440,9 +467,29 @@ class MSSQLDatabase extends Database {
 			return 'create index ix_' . $tableName . '_' . $indexName . " ON \"" . $tableName . "\" (" . $indexes . ");";
 		} else {
 			//create a type-specific index
-			if($indexSpec['type']=='fulltext')
-				return 'create index ix_' . $tableName . '_' . $indexName . " ON \"" . $tableName . "\" USING gist(\"ts_" . $indexName . "\");";
-						
+			if($indexSpec['type']=='fulltext'){
+				//We need the name of the primary key for this table:
+				//TODO: There MUST be a better way of doing this.... shurely....
+				//$primary_key=$this->query("SELECT [name] FROM syscolumns WHERE [id] IN (SELECT [id] FROM sysobjects WHERE [name] = '$tableName') AND colid IN (SELECT SIK.colid FROM sysindexkeys SIK JOIN sysobjects SO ON SIK.[id] = SO.[id] WHERE SIK.indid = 1 AND SO.[name] = '$tableName');")->first();
+				$indexes=DB::query("EXEC sp_helpindex '$tableName';");
+				foreach($indexes as $this_index){
+					if($this_index['index_keys']=='ID'){
+						$primary_key=$this_index['index_name'];
+						break;
+					}
+				}
+				
+				//First, we need to see if a full text search already exists:
+				$result=$this->query("SELECT object_id FROM sys.fulltext_indexes WHERE object_id=object_id('$tableName');")->first();
+				
+				$drop='';
+				if($result)
+					$drop="DROP FULLTEXT INDEX ON \"" . $tableName . "\";";
+				
+				return $drop . "CREATE FULLTEXT INDEX ON \"$tableName\"	({$indexSpec['value']})	KEY INDEX $primary_key ON {$GLOBALS['database']}	WITH CHANGE_TRACKING AUTO;";
+			
+			}
+									
 			if($indexSpec['type']=='unique')
 				return 'create unique index ix_' . $tableName . '_' . $indexName . " ON \"" . $tableName . "\" (\"" . $indexSpec['value'] . "\");";
 		}
@@ -471,7 +518,7 @@ class MSSQLDatabase extends Database {
 	    	$indexType = "index";
 	    }
     
-		$this->query("DROP INDEX $indexName");
+	    $this->query("DROP INDEX $indexName ON $tableName;");
 		$this->query("ALTER TABLE \"$tableName\" ADD $indexType \"$indexName\" $indexFields");
 	}
 	
@@ -481,24 +528,38 @@ class MSSQLDatabase extends Database {
 	 * @return array
 	 */
 	public function indexList($table) {
-		//user_error("indexList not implemented", E_USER_WARNING);
-		return array();
-		/*
+		$indexes=DB::query("EXEC sp_helpindex '$table';");
 		
-  		//Retrieve a list of indexes for the specified table
-		$indexes = DB::query("SELECT i.relname AS \"indexname\"
-   							  	FROM pg_index x
-   							    JOIN pg_class c ON c.oid = x.indrelid
-							    JOIN pg_class i ON i.oid = x.indexrelid
-							    LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
-							    LEFT JOIN pg_tablespace t ON t.oid = i.reltablespace
-							  WHERE c.relkind = 'r'::\"char\" AND i.relkind = 'i'::\"char\"
-							  	AND c.relname = '$table';");
+		
+		foreach($indexes as $index) {
+			
+			//Check for uniques:
+			if(strpos($index['index_description'], 'unique')!==false)
+				$prefix='unique ';
+			
+			$key=str_replace(', ', ',', $index['index_keys']);
+			$indexList[$key]['indexname']=$index['index_name'];
+			$indexList[$key]['spec']=$prefix . '(' . $key . ')';
+  		  			
+  		}
+  		
+  		//Now we need to check to see if we have any fulltext indexes attached to this table:
+  		$result=DB::query('EXEC sp_help_fulltext_columns;');
+  		$columns='';
+  		foreach($result as $row){
+  			
+  			if($row['TABLE_NAME']==$table)
+  				$columns.=$row['FULLTEXT_COLUMN_NAME'] . ',';	
+  			
+  		}
+  		
+  		if($columns!=''){
+  			$columns=trim($columns, ',');
+  			$indexList['SearchFields']['indexname']='SearchFields';
+  			$indexList['SearchFields']['spec']='fulltext (' . $columns . ')';
+  		}
 
-			$indexList[$index['indexname']]=$index['indexname'];
-
-		return isset($indexList) ? $indexList : null;
-		*/
+  		return isset($indexList) ? $indexList : null;
 		
 	}
 
@@ -544,6 +605,7 @@ class MSSQLDatabase extends Database {
 	
 	/**
 	 * Return a boolean type-formatted string
+	 * We use 'bit' so that we can do numeric-based comparisons
 	 * 
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
@@ -707,9 +769,11 @@ class MSSQLDatabase extends Database {
 	function fulltext($table, $spec){
 		//$spec['name'] is the column we've created that holds all the words we want to index.
 		//This is a coalesced collection of multiple columns if necessary
-		$spec='create index ix_' . $table . '_' . $spec['name'] . ' on ' . $table . ' using gist(' . $spec['name'] . ');';
+		//$spec='create index ix_' . $table . '_' . $spec['name'] . ' on ' . $table . ' using gist(' . $spec['name'] . ');';
 		
-		return $spec;
+		//return $spec;
+		echo '<span style="color: Red">full text just got called!</span><br>';
+		return '';
 	}
 	
 	/**
@@ -782,9 +846,20 @@ class MSSQLDatabase extends Database {
 		if($sqlQuery->orderby) $text .= " ORDER BY " . $sqlQuery->orderby;
 
 		// Limit not implemented
-		/*
-		if($sqlQuery->limit) {
-			$limit = $sqlQuery->limit;
+		
+		/*if($sqlQuery->limit) {
+			*/
+			/*
+			 * For MSSQL, we need to do something different since it doesn't support LIMIT OFFSET as most normal
+			 * databases do
+			 * 
+			 * select * from (
+				    select row_number() over (order by PrimaryKeyId) as number, * from MyTable
+				) as numbered
+				where number between 21 and 30
+			 */
+			
+			/*$limit = $sqlQuery->limit;
 			// Pass limit as array or SQL string value
 			if(is_array($limit)) {
 				if(!array_key_exists('limit',$limit)) user_error('SQLQuery::limit(): Wrong format for $limit', E_USER_ERROR);
