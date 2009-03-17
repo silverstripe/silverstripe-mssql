@@ -893,6 +893,14 @@ class MSSQLDatabase extends Database {
 
     	return $value;
 	}
+	
+	/*
+	 * This changes the index name depending on database requirements.
+	 * MSSQL requires commas to be replaced with underscores 
+	 */
+	function modifyIndex($index){
+		return str_replace('_', ',', $index);
+	}
 }
 
 /**
