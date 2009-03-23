@@ -153,6 +153,18 @@ class MSSQLDatabase extends Database {
 		return $this->query("SELECT @@IDENTITY FROM \"$table\"")->value();
 	}
 	
+	function getPrimaryKey($tableName){
+		$indexes=DB::query("EXEC sp_helpindex '$tableName';");
+		$primary_key='';
+		foreach($indexes as $this_index){
+			if($this_index['index_keys']=='ID'){
+				$primary_key=$this_index['index_name'];
+				break;
+			}
+		}
+		
+		return $primary_key;
+	}
 	/**
 	 * OBSOLETE: Get the ID for the next new record for the table.
 	 * 
@@ -471,13 +483,14 @@ class MSSQLDatabase extends Database {
 				//We need the name of the primary key for this table:
 				//TODO: There MUST be a better way of doing this.... shurely....
 				//$primary_key=$this->query("SELECT [name] FROM syscolumns WHERE [id] IN (SELECT [id] FROM sysobjects WHERE [name] = '$tableName') AND colid IN (SELECT SIK.colid FROM sysindexkeys SIK JOIN sysobjects SO ON SIK.[id] = SO.[id] WHERE SIK.indid = 1 AND SO.[name] = '$tableName');")->first();
-				$indexes=DB::query("EXEC sp_helpindex '$tableName';");
-				foreach($indexes as $this_index){
-					if($this_index['index_keys']=='ID'){
-						$primary_key=$this_index['index_name'];
-						break;
-					}
-				}
+				//$indexes=DB::query("EXEC sp_helpindex '$tableName';");
+				//foreach($indexes as $this_index){
+				//	if($this_index['index_keys']=='ID'){
+				//		$primary_key=$this_index['index_name'];
+				//		break;
+				//	}
+				//}
+				$primary_key=$this->getPrimaryKey($tableName);
 				
 				//First, we need to see if a full text search already exists:
 				$result=$this->query("SELECT object_id FROM sys.fulltext_indexes WHERE object_id=object_id('$tableName');")->first();
@@ -832,52 +845,80 @@ class MSSQLDatabase extends Database {
 	 */
 	public function sqlQueryToString(SQLQuery $sqlQuery) {
 		if (!$sqlQuery->from) return '';
+		
+		//TODO: remove me when the limit function supposedly works
+		$sqlQuery->limit='';
+		
+		//Get the limit and offset
+		$limit='';
+		$offset='0';
+		if(is_array($sqlQuery->limit)){
+			$limit=$sqlQuery->limit['limit'];
+			if(isset($sqlQuery->limit['start']))
+				$offset=$sqlQuery->limit['start'];
+			
+		} else {
+			//could be a comma delimited string
+			$bits=explode(',', $sqlQuery->limit);
+			$limit=trim($bits[0]);
+			if(isset($bits[1]))
+				$offset=trim($bits[1]);
+		}
+		
+		$text='';
+		if($sqlQuery->limit) {
+			$text='SELECT * FROM ( SELECT ROW_NUMBER() OVER (';
+			$limitText=' ORDER BY ' . $sqlQuery->orderby . ') AS Number,';
+		}
+		
 		$distinct = $sqlQuery->distinct ? "DISTINCT " : "";
-		if($sqlQuery->delete) {
-			$text = "DELETE ";
-		} else if($sqlQuery->select) {
-			$text = "SELECT $distinct" . implode(", ", $sqlQuery->select);
+		
+		//NOTE: Assumes that deletes don't have limit/offset clauses
+		if($sqlQuery->delete)
+			$text = 'DELETE ';
+		else if($sqlQuery->select) {
+			if($limitText=='')
+				$text.='SELECT';
+			$text .= "$limitText $distinct" . implode(", ", $sqlQuery->select);
 		}
 		$text .= " FROM " . implode(" ", $sqlQuery->from);
 
 		if($sqlQuery->where) $text .= " WHERE (" . $sqlQuery->getFilter(). ")";
 		if($sqlQuery->groupby) $text .= " GROUP BY " . implode(", ", $sqlQuery->groupby);
 		if($sqlQuery->having) $text .= " HAVING ( " . implode(" ) AND ( ", $sqlQuery->having) . " )";
-		if($sqlQuery->orderby) $text .= " ORDER BY " . $sqlQuery->orderby;
+		if($limitText=='')
+			if($sqlQuery->orderby) $text .= " ORDER BY " . $sqlQuery->orderby;
 
 		// Limit not implemented
-		
-		/*if($sqlQuery->limit) {
-			*/
+		if($sqlQuery->limit){
+			$text.=') AS Numbered WHERE Number BETWEEN ' . $offset . ' AND ' . ($offset+$limit) . ';';
+		}
+		//if($sqlQuery->limit) {
+			
 			/*
 			 * For MSSQL, we need to do something different since it doesn't support LIMIT OFFSET as most normal
 			 * databases do
-			 * 
-			 * select * from (
-				    select row_number() over (order by PrimaryKeyId) as number, * from MyTable
+			 *
+			 * This is our preferred method, but we need to know the primary key name:
+			 *  
+			  	select * from (
+				    select row_number() over (order by $this->orderby) as number, * from MyTable
 				) as numbered
 				where number between 21 and 30
+
+				SELECT * FROM ( 
+					SELECT ROW_NUMBER() OVER (SELECT ORDER BY "Sort") AS Number, "SiteTree".*, "GhostPage".*, "ErrorPage".*, "RedirectorPage".*, "VirtualPage".*, "ExamplePage".*, "SiteTree"."ID", CASE WHEN "SiteTree"."ClassName" IS NOT NULL THEN "SiteTree"."ClassName" ELSE 'SiteTree' END AS "RecordClassName" FROM "SiteTree" LEFT JOIN "GhostPage" ON "GhostPage"."ID" = "SiteTree"."ID" LEFT JOIN "ErrorPage" ON "ErrorPage"."ID" = "SiteTree"."ID" LEFT JOIN "RedirectorPage" ON "RedirectorPage"."ID" = "SiteTree"."ID" LEFT JOIN "VirtualPage" ON "VirtualPage"."ID" = "SiteTree"."ID" LEFT JOIN "ExamplePage" ON "ExamplePage"."ID" = "SiteTree"."ID" WHERE ("URLSegment" = 'home') ORDER BY "Sort"
+				) AS Numbered WHERE Number BETWEEN 0 AND 1;
+
+				SELECT * FROM (
+					select ROW_NUMBER() over (order by SiteTree.Title) AS RowNum, *
+					FROM SiteTree) as Numbered
+					WHERE RowNum Between 0 And 1;
 			 */
 			
-			/*$limit = $sqlQuery->limit;
-			// Pass limit as array or SQL string value
-			if(is_array($limit)) {
-				if(!array_key_exists('limit',$limit)) user_error('SQLQuery::limit(): Wrong format for $limit', E_USER_ERROR);
-
-				if(isset($limit['start']) && is_numeric($limit['start']) && isset($limit['limit']) && is_numeric($limit['limit'])) {
-					$combinedLimit = (int)$limit['start'] . ',' . (int)$limit['limit'];
-				} elseif(isset($limit['limit']) && is_numeric($limit['limit'])) {
-					$combinedLimit = (int)$limit['limit'];
-				} else {
-					$combinedLimit = false;
-				}
-				if(!empty($combinedLimit)) $this->limit = $combinedLimit;
-
-			} else {
-				$text .= " LIMIT " . $sqlQuery->limit;
-			}
-		}
-		*/
+			
+		//}
+		
 		
 		return $text;
 	}
@@ -900,6 +941,110 @@ class MSSQLDatabase extends Database {
 	 */
 	function modifyIndex($index){
 		return str_replace('_', ',', $index);
+	}
+	
+	/**
+	 * The core search engine, used by this class and its subclasses to do fun stuff.
+	 * Searches both SiteTree and File.
+	 * 
+	 * @param string $keywords Keywords as a string.
+	 */
+	public function searchEngine($classesToSearch, $keywords, $pageLength = null, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
+		
+		$result=DB::query('EXEC sp_help_fulltext_columns;');
+		
+		//Get a list of all the tables and columns we'll be searching on:
+		$tables=Array();
+		foreach($result as $row){
+			$tables[$row['TABLE_NAME']]=$row['FULLTEXT_COLUMN_NAME'];
+		}
+		
+		//We'll do a union query on all of these tables... it's easeier!
+		
+		
+		
+		/*if(!$pageLength) $pageLength = $this->pageLength;
+		$fileFilter = '';	 	
+	 	$keywords = Convert::raw2sql($keywords);
+		$htmlEntityKeywords = htmlentities($keywords);
+	
+		$extraFilters = array('SiteTree' => '', 'File' => '');
+	 	
+	 	if($booleanSearch) $boolean = "IN BOOLEAN MODE";
+	
+	 	if($extraFilter) {
+	 		$extraFilters['SiteTree'] = " AND $extraFilter";
+	 		
+	 		if($alternativeFileFilter) $extraFilters['File'] = " AND $alternativeFileFilter";
+	 		else $extraFilters['File'] = $extraFilters['SiteTree'];
+	 	}
+	 	
+	 	if($this->showInSearchTurnOn)	$extraFilters['SiteTree'] .= " AND showInSearch <> 0";
+
+		$start = isset($_GET['start']) ? (int)$_GET['start'] : 0;
+		$limit = $start . ", " . (int) $pageLength;
+		
+		$notMatch = $invertedMatch ? "NOT " : "";
+		if($keywords) {
+			$match['SiteTree'] = "
+				MATCH (Title, MenuTitle, Content, MetaTitle, MetaDescription, MetaKeywords) AGAINST ('$keywords' $boolean)
+				+ MATCH (Content) AGAINST ('$htmlEntityKeywords' $boolean) 
+			";
+			$match['File'] = "MATCH (Filename, Title, Content) AGAINST ('$keywords' $boolean) AND ClassName = 'File'";
+	
+			// We make the relevance search by converting a boolean mode search into a normal one
+			$relevanceKeywords = str_replace(array('*','+','-'),'',$keywords);
+			$htmlEntityRelevanceKeywords = str_replace(array('*','+','-'),'',$htmlEntityKeywords);
+			$relevance['SiteTree'] = "MATCH (Title) AGAINST ('$relevanceKeywords') + MATCH(Content) AGAINST ('$htmlEntityRelevanceKeywords') + MATCH (Title, MenuTitle, Content, MetaTitle, MetaDescription, MetaKeywords) AGAINST ('$relevanceKeywords')";
+			$relevance['File'] = "MATCH (Filename, Title, Content) AGAINST ('$relevanceKeywords')";
+		} else {
+			$relevance['SiteTree'] = $relevance['File'] = 1;
+			$match['SiteTree'] = $match['File'] = "1 = 1";
+		}
+
+		// Generate initial queries and base table names
+		$baseClasses = array('SiteTree' => '', 'File' => '');
+		foreach($classesToSearch as $class) {
+			$queries[$class] = singleton($class)->extendedSQL($notMatch . $match[$class] . $extraFilters[$class], "");
+			$baseClasses[$class] = reset($queries[$class]->from);
+		}
+		
+		// Make column selection lists
+		$select = array(
+			'SiteTree' => array("ClassName","$baseClasses[SiteTree].ID","ParentID","Title","URLSegment","Content","LastEdited","Created","_utf8'' AS Filename", "_utf8'' AS Name", "$relevance[SiteTree] AS Relevance", "CanViewType"),
+			'File' => array("ClassName","$baseClasses[File].ID","_utf8'' AS ParentID","Title","_utf8'' AS URLSegment","Content","LastEdited","Created","Filename","Name","$relevance[File] AS Relevance","NULL AS CanViewType"),
+		);
+		
+		// Process queries
+		foreach($classesToSearch as $class) {
+			// There's no need to do all that joining
+			$queries[$class]->from = array(str_replace('`','',$baseClasses[$class]) => $baseClasses[$class]);
+			$queries[$class]->select = $select[$class];
+			$queries[$class]->orderby = null;
+		}
+
+		// Combine queries
+		$querySQLs = array();
+		$totalCount = 0;
+		foreach($queries as $query) {
+			$querySQLs[] = $query->sql();
+			$totalCount += $query->unlimitedRowCount();
+		}
+		$fullQuery = implode(" UNION ", $querySQLs) . " ORDER BY $sortBy LIMIT $limit";
+		
+		// Get records
+		
+		echo 'full query: ' . $fullQuery . '<br>';
+		$records = DB::query($fullQuery);
+
+		foreach($records as $record)
+			$objects[] = new $record['ClassName']($record);
+
+		if(isset($objects)) $doSet = new DataObjectSet($objects);
+		else $doSet = new DataObjectSet();
+		
+		$doSet->setPageLimits($start, $pageLength, $totalCount);
+		return $doSet;*/
 	}
 }
 
