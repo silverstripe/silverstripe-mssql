@@ -542,10 +542,10 @@ class MSSQLDatabase extends Database {
 	 */
 	public function indexList($table) {
 		$indexes=DB::query("EXEC sp_helpindex '$table';");
-		
+		$prefix = null;
 		
 		foreach($indexes as $index) {
-			
+
 			//Check for uniques:
 			if(strpos($index['index_description'], 'unique')!==false)
 				$prefix='unique ';
@@ -866,6 +866,7 @@ class MSSQLDatabase extends Database {
 		}
 		
 		$text='';
+		$limitText='';
 		if($sqlQuery->limit) {
 			$text='SELECT * FROM ( SELECT ROW_NUMBER() OVER (';
 			$limitText=' ORDER BY ' . $sqlQuery->orderby . ') AS Number,';
