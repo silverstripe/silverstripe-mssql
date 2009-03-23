@@ -72,7 +72,7 @@ class MSSQLDatabase extends Database {
 		
 		$result=$this->query("SELECT name FROM sys.fulltext_catalogs;");
 		if(!$result)
-			$this->query("CREATE FULLTEXT CATALOG {$GLOBALS['database']};");
+			$this->query("CREATE FULLTEXT CATALOG $this->database;");
 		
 	}
 	/**
@@ -470,7 +470,7 @@ class MSSQLDatabase extends Database {
 	}
 	
 	protected function getIndexSqlDefinition($tableName, $indexName, $indexSpec) {
-	    
+
 		if(!is_array($indexSpec)){
 			$indexSpec=trim($indexSpec, '()');
 			$bits=explode(',', $indexSpec);
@@ -499,7 +499,7 @@ class MSSQLDatabase extends Database {
 				if($result)
 					$drop="DROP FULLTEXT INDEX ON \"" . $tableName . "\";";
 				
-				return $drop . "CREATE FULLTEXT INDEX ON \"$tableName\"	({$indexSpec['value']})	KEY INDEX $primary_key ON {$GLOBALS['database']}	WITH CHANGE_TRACKING AUTO;";
+				return $drop . "CREATE FULLTEXT INDEX ON \"$tableName\"	({$indexSpec['value']})	KEY INDEX $primary_key ON $this->database	WITH CHANGE_TRACKING AUTO;";
 			
 			}
 									
@@ -810,7 +810,7 @@ class MSSQLDatabase extends Database {
 	 * Returns the SQL command to get all the tables in this database
 	 */
 	function allTablesSQL(){
-		return "SELECT name FROM {$GLOBALS['database']}..sysobjects WHERE xtype = 'U';";
+		return "SELECT name FROM $this->database..sysobjects WHERE xtype = 'U';";
 	}
 	
 	/**
