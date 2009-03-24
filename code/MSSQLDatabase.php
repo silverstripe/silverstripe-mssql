@@ -65,6 +65,7 @@ class MSSQLDatabase extends Database {
 	 * Theoretically, you don't need to 'enable' it every time...
 	 *
 	 * TODO: make this a _config.php setting
+	 * TODO: VERY IMPORTANT: move this so it only gets called upon a dev/build action
 	 */
 	function createFullTextCatalog(){
 			
@@ -470,7 +471,7 @@ class MSSQLDatabase extends Database {
 	}
 	
 	protected function getIndexSqlDefinition($tableName, $indexName, $indexSpec) {
-
+	    
 		if(!is_array($indexSpec)){
 			$indexSpec=trim($indexSpec, '()');
 			$bits=explode(',', $indexSpec);
@@ -542,10 +543,11 @@ class MSSQLDatabase extends Database {
 	 */
 	public function indexList($table) {
 		$indexes=DB::query("EXEC sp_helpindex '$table';");
-		$prefix = null;
+		$prefix = '';
+		
 		
 		foreach($indexes as $index) {
-
+			
 			//Check for uniques:
 			if(strpos($index['index_description'], 'unique')!==false)
 				$prefix='unique ';
@@ -810,7 +812,7 @@ class MSSQLDatabase extends Database {
 	 * Returns the SQL command to get all the tables in this database
 	 */
 	function allTablesSQL(){
-		return "SELECT name FROM $this->database..sysobjects WHERE xtype = 'U';";
+		return "SELECT name FROM {$this->database}..sysobjects WHERE xtype = 'U';";
 	}
 	
 	/**
@@ -948,6 +950,8 @@ class MSSQLDatabase extends Database {
 	 * The core search engine, used by this class and its subclasses to do fun stuff.
 	 * Searches both SiteTree and File.
 	 * 
+	 * TODO: This is a really basic search system, provided purely so we have something...
+	 * 
 	 * @param string $keywords Keywords as a string.
 	 */
 	public function searchEngine($classesToSearch, $keywords, $pageLength = null, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
@@ -957,95 +961,24 @@ class MSSQLDatabase extends Database {
 		//Get a list of all the tables and columns we'll be searching on:
 		$tables=Array();
 		foreach($result as $row){
-			$tables[$row['TABLE_NAME']]=$row['FULLTEXT_COLUMN_NAME'];
+			if(substr($row['TABLE_NAME'], -5)!='_Live' && substr($row['TABLE_NAME'], -9)!='_versions')
+				$tables[]="SELECT ID, '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", N'$keywords')";
 		}
 		
 		//We'll do a union query on all of these tables... it's easeier!
+		$query=implode(' UNION ', $tables);
 		
+		$result=DB::query($query);
 		
-		
-		/*if(!$pageLength) $pageLength = $this->pageLength;
-		$fileFilter = '';	 	
-	 	$keywords = Convert::raw2sql($keywords);
-		$htmlEntityKeywords = htmlentities($keywords);
-	
-		$extraFilters = array('SiteTree' => '', 'File' => '');
-	 	
-	 	if($booleanSearch) $boolean = "IN BOOLEAN MODE";
-	
-	 	if($extraFilter) {
-	 		$extraFilters['SiteTree'] = " AND $extraFilter";
-	 		
-	 		if($alternativeFileFilter) $extraFilters['File'] = " AND $alternativeFileFilter";
-	 		else $extraFilters['File'] = $extraFilters['SiteTree'];
-	 	}
-	 	
-	 	if($this->showInSearchTurnOn)	$extraFilters['SiteTree'] .= " AND showInSearch <> 0";
-
-		$start = isset($_GET['start']) ? (int)$_GET['start'] : 0;
-		$limit = $start . ", " . (int) $pageLength;
-		
-		$notMatch = $invertedMatch ? "NOT " : "";
-		if($keywords) {
-			$match['SiteTree'] = "
-				MATCH (Title, MenuTitle, Content, MetaTitle, MetaDescription, MetaKeywords) AGAINST ('$keywords' $boolean)
-				+ MATCH (Content) AGAINST ('$htmlEntityKeywords' $boolean) 
-			";
-			$match['File'] = "MATCH (Filename, Title, Content) AGAINST ('$keywords' $boolean) AND ClassName = 'File'";
-	
-			// We make the relevance search by converting a boolean mode search into a normal one
-			$relevanceKeywords = str_replace(array('*','+','-'),'',$keywords);
-			$htmlEntityRelevanceKeywords = str_replace(array('*','+','-'),'',$htmlEntityKeywords);
-			$relevance['SiteTree'] = "MATCH (Title) AGAINST ('$relevanceKeywords') + MATCH(Content) AGAINST ('$htmlEntityRelevanceKeywords') + MATCH (Title, MenuTitle, Content, MetaTitle, MetaDescription, MetaKeywords) AGAINST ('$relevanceKeywords')";
-			$relevance['File'] = "MATCH (Filename, Title, Content) AGAINST ('$relevanceKeywords')";
-		} else {
-			$relevance['SiteTree'] = $relevance['File'] = 1;
-			$match['SiteTree'] = $match['File'] = "1 = 1";
-		}
-
-		// Generate initial queries and base table names
-		$baseClasses = array('SiteTree' => '', 'File' => '');
-		foreach($classesToSearch as $class) {
-			$queries[$class] = singleton($class)->extendedSQL($notMatch . $match[$class] . $extraFilters[$class], "");
-			$baseClasses[$class] = reset($queries[$class]->from);
+		$searchResults=new DataObjectSet();
+		foreach($result as $row){
+			$row_result=DataObject::get_by_id($row['Source'], $row['ID']);
+			$searchResults->push($row_result);
 		}
 		
-		// Make column selection lists
-		$select = array(
-			'SiteTree' => array("ClassName","$baseClasses[SiteTree].ID","ParentID","Title","URLSegment","Content","LastEdited","Created","_utf8'' AS Filename", "_utf8'' AS Name", "$relevance[SiteTree] AS Relevance", "CanViewType"),
-			'File' => array("ClassName","$baseClasses[File].ID","_utf8'' AS ParentID","Title","_utf8'' AS URLSegment","Content","LastEdited","Created","Filename","Name","$relevance[File] AS Relevance","NULL AS CanViewType"),
-		);
+		$searchResults->setPageLimits($start, $pageLength, $totalCount);
 		
-		// Process queries
-		foreach($classesToSearch as $class) {
-			// There's no need to do all that joining
-			$queries[$class]->from = array(str_replace('`','',$baseClasses[$class]) => $baseClasses[$class]);
-			$queries[$class]->select = $select[$class];
-			$queries[$class]->orderby = null;
-		}
-
-		// Combine queries
-		$querySQLs = array();
-		$totalCount = 0;
-		foreach($queries as $query) {
-			$querySQLs[] = $query->sql();
-			$totalCount += $query->unlimitedRowCount();
-		}
-		$fullQuery = implode(" UNION ", $querySQLs) . " ORDER BY $sortBy LIMIT $limit";
-		
-		// Get records
-		
-		echo 'full query: ' . $fullQuery . '<br>';
-		$records = DB::query($fullQuery);
-
-		foreach($records as $record)
-			$objects[] = new $record['ClassName']($record);
-
-		if(isset($objects)) $doSet = new DataObjectSet($objects);
-		else $doSet = new DataObjectSet();
-		
-		$doSet->setPageLimits($start, $pageLength, $totalCount);
-		return $doSet;*/
+		return $searchResults;
 	}
 }
 
