@@ -471,7 +471,7 @@ class MSSQLDatabase extends Database {
 	}
 	
 	protected function getIndexSqlDefinition($tableName, $indexName, $indexSpec) {
-	    
+
 		if(!is_array($indexSpec)){
 			$indexSpec=trim($indexSpec, '()');
 			$bits=explode(',', $indexSpec);
@@ -547,7 +547,7 @@ class MSSQLDatabase extends Database {
 		
 		
 		foreach($indexes as $index) {
-			
+
 			//Check for uniques:
 			if(strpos($index['index_description'], 'unique')!==false)
 				$prefix='unique ';
@@ -965,11 +965,12 @@ class MSSQLDatabase extends Database {
 				$tables[]="SELECT ID, '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", N'$keywords')";
 		}
 		
+
 		//We'll do a union query on all of these tables... it's easeier!
 		$query=implode(' UNION ', $tables);
 		
 		$result=DB::query($query);
-		
+
 		$searchResults=new DataObjectSet();
 		foreach($result as $row){
 			$row_result=DataObject::get_by_id($row['Source'], $row['ID']);
