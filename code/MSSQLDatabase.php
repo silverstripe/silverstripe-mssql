@@ -29,6 +29,13 @@ class MSSQLDatabase extends Database {
 	 */
 	private $database;
 	
+	/**
+	 * Holds either mssql or sqlsrv, depending on what's available on the server.
+	 *
+	 * @var string
+	 */
+	private $funcPrefix;
+	
 	/*function connect($server, $username, $password){
 		$func = $this->funcPrefix . '_connect';
 		
@@ -620,7 +627,7 @@ class MSSQLDatabase extends Database {
 	 * @return int
 	 */
 	public function affectedRows() {
-		$funcName=$this->prefix . '_rows_affected';
+		$funcName=$this->funcPrefix . '_rows_affected';
 		return $funcName($this->dbConn);
 	}
 	
@@ -1026,11 +1033,24 @@ class MSSQLQuery extends Query {
 	private $handle;
 
 	/**
+	 * Holds either mssql or sqlsrv, depending on what's available on the server.
+	 *
+	 * @var string
+	 */
+	private $funcPrefix;
+	
+	/**
 	 * Hook the result-set given into a Query class, suitable for use by sapphire.
 	 * @param database The database object that created this query.
 	 * @param handle the internal mysql handle that is points to the resultset.
 	 */
 	public function __construct(MSSQLDatabase $database, $handle) {
+		
+		if(function_exists('sqlsrv'))
+			$this->funcPrefix='sqlsrv';
+		else
+			$this->funcPrefix='mssql';
+			
 		$this->database = $database;
 		$this->handle = $handle;
 		parent::__construct();
@@ -1047,14 +1067,14 @@ class MSSQLQuery extends Query {
 	}
 	
 	public function numRecords() {
-		$funcName=$this->prefix . '_num_rows';
+		$funcName=$this->funcPrefix . '_num_rows';
 		return $funcName($this->handle);
 	}
 	
 	public function nextRecord() {
 		// Coalesce rather than replace common fields.
-		$fetch_row=$this->prefix . '_fetch_row';
-		$field_name=$this->prefix . '_field_name';
+		$fetch_row=$this->funcPrefix . '_fetch_row';
+		$field_name=$this->funcPrefix . '_field_name';
 		
 		if($data = $fetch_row($this->handle)) {
 			foreach($data as $columnIdx => $value) {
