@@ -29,6 +29,16 @@ class MSSQLDatabase extends Database {
 	 */
 	private $database;
 	
+	/*function connect($server, $username, $password){
+		$func = $this->funcPrefix . '_connect';
+		
+		
+		if(MSSQL_COMPATIBLE)
+			return $func($server, $username, $password);
+		else
+			return sqlsrv_connect($server, $username, $password);
+	}*/
+	
 	/**
 	 * Connect to a MS SQL database.
 	 * @param array $parameters An map of parameters, which should include:
@@ -38,9 +48,19 @@ class MSSQLDatabase extends Database {
 	 *  - database: The database to connect to
 	 */
 	public function __construct($parameters) {
+		
+		if(function_exists('sqlsrv'))
+			$this->funcPrefix='sqlsrv';
+		else
+			$this->funcPrefix='mssql';
+		
+		//Set up the database function names
+		$connect=$this->funcPrefix . '_connect';
+		$select_db=$this->funcPrefix . '_select_db';
+		
 		//assumes that the server and dbname will always be provided:
-		$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password']);
-		$this->active = mssql_select_db($parameters['database'], $this->dbConn);
+		$this->dbConn = $connect($parameters['server'], $parameters['username'], $parameters['password']);
+		$this->active = $select_db($parameters['database'], $this->dbConn);
 		$this->database = $parameters['database'];
 		
 		if(!$this->dbConn) {
@@ -48,7 +68,7 @@ class MSSQLDatabase extends Database {
 		} else {
 			$this->active=true;
 			$this->database = $parameters['database'];
-			mssql_select_db($parameters['database'], $this->dbConn);
+			$select_db($parameters['database'], $this->dbConn);
 		}
 
 		parent::__construct();
@@ -137,7 +157,9 @@ class MSSQLDatabase extends Database {
 		//echo 'sql: ' . $sql . '<br>';
 		//Debug::backtrace();
 		
-		$handle = mssql_query($sql, $this->dbConn);
+		$funcName=$this->funcPrefix . '_query';
+		
+		$handle = $funcName($sql, $this->dbConn);
 		
 		if(isset($_REQUEST['showqueries'])) {
 			$endtime = round(microtime(true) - $starttime,4);
@@ -598,7 +620,8 @@ class MSSQLDatabase extends Database {
 	 * @return int
 	 */
 	public function affectedRows() {
-		return mssql_rows_affected($this->dbConn);
+		$funcName=$this->prefix . '_rows_affected';
+		return $funcName($this->dbConn);
 	}
 	
 	/**
@@ -1014,22 +1037,28 @@ class MSSQLQuery extends Query {
 	}
 	
 	public function __destroy() {
-		mysql_free_result($this->handle);
+		$funcName=$this->funcPrefix . '_free_result';
+		$funcName($this->handle);
 	}
 	
 	public function seek($row) {
-		return mssql_data_seek($this->handle, $row);
+		$funcName=$this->funcPrefix . '_data_seek';
+		return $funcName($this->handle, $row);
 	}
 	
 	public function numRecords() {
-		return mssql_num_rows($this->handle);
+		$funcName=$this->prefix . '_num_rows';
+		return $funcName($this->handle);
 	}
 	
 	public function nextRecord() {
 		// Coalesce rather than replace common fields.
-		if($data = mssql_fetch_row($this->handle)) {
+		$fetch_row=$this->prefix . '_fetch_row';
+		$field_name=$this->prefix . '_field_name';
+		
+		if($data = $fetch_row($this->handle)) {
 			foreach($data as $columnIdx => $value) {
-				$columnName = mssql_field_name($this->handle, $columnIdx);
+				$columnName = $field_name($this->handle, $columnIdx);
 				// $value || !$ouput[$columnName] means that the *last* occurring value is shown
 				// !$ouput[$columnName] means that the *first* occurring value is shown
 				if(isset($value) || !isset($output[$columnName])) {
