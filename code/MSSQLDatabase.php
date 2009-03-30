@@ -180,7 +180,8 @@ class MSSQLDatabase extends Database {
 	}
 	
 	public function getGeneratedID($table) {
-		return $this->query("SELECT @@IDENTITY FROM \"$table\"")->value();
+		//return $this->query("SELECT @@IDENTITY FROM \"$table\"")->value();
+		return $this->query("SELECT IDENT_CURRENT('$table')")->value();
 	}
 	
 	function getPrimaryKey($tableName){
@@ -1012,6 +1013,7 @@ class MSSQLDatabase extends Database {
 		
 		return $searchResults;
 	}
+	
 }
 
 /**
