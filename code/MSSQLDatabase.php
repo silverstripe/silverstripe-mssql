@@ -280,10 +280,12 @@ class MSSQLDatabase extends Database {
 		$alterList = array();
 		if($newFields) foreach($newFields as $k => $v) $alterList[] .= "ADD \"$k\" $v";
 		
+		$indexList=$this->IndexList($tableName);
+		
 		if($alteredFields) {
 			foreach($alteredFields as $k => $v) {
 				
-				$val=$this->alterTableAlterColumn($tableName, $k, $v);
+				$val=$this->alterTableAlterColumn($tableName, $k, $v, $indexList);
 				if($val!='')
 					$alterList[] .= $val;
 			}
@@ -293,7 +295,7 @@ class MSSQLDatabase extends Database {
 		//see http://www.postgresql.org/docs/8.1/static/sql-altertable.html
 		$alterIndexList=Array();
 		if($alteredIndexes) foreach($alteredIndexes as $v) {
-			
+			//TODO: I don't think that these drop index commands will work:
 			if($v['type']!='fulltext'){
 				if(is_array($v))
 					$alterIndexList[] = 'DROP INDEX ix_' . strtolower($tableName) . '_' . strtolower($v['value']) . ' ON ' . $tableName . ';';
@@ -315,7 +317,8 @@ class MSSQLDatabase extends Database {
 
  		if($alterList) {
 			$alterations = implode(",\n", $alterList);
-			$this->query("ALTER TABLE \"$tableName\" " . $alterations);
+			//$this->query("ALTER TABLE \"$tableName\" " . $alterations);
+			$this->query($alterations);
 		}
 		
 		foreach($alterIndexList as $alteration)
@@ -331,10 +334,9 @@ class MSSQLDatabase extends Database {
 	 * @param $colSpec   String which contains conditions for a column
 	 * @return string
 	 */
-	private function alterTableAlterColumn($tableName, $colName, $colSpec){
+	private function alterTableAlterColumn($tableName, $colName, $colSpec, $indexList){
 		// Alterations not implemented
-		return;
-		
+		//return '';
 		// First, we split the column specifications into parts
 		// TODO: this returns an empty array for the following string: int(11) not null auto_increment
 		//		 on second thoughts, why is an auto_increment field being passed through?
@@ -342,22 +344,36 @@ class MSSQLDatabase extends Database {
 		$pattern = '/^([\w()]+)\s?((?:not\s)?null)?\s?(default\s[\w\']+)?\s?(check\s[\w()\'",\s]+)?$/i';
 		preg_match($pattern, $colSpec, $matches);
 		
+		//if($matches[1]=='serial8')
+		//	return '';
+		
+		//drop the index if it exists:
+		$alterCol='';
+		if(isset($indexList[$colName])){
+			$alterCol = "\nDROP INDEX \"$tableName\".ix_{$tableName}_{$colName}";
+		}
+		
+		$prefix="ALTER TABLE \"" . $tableName . "\" ";
 		if(isset($matches[1])) {
-			$alterCol = "ALTER COLUMN \"$colName\" TYPE $matches[1]\n";
+			$alterCol .= "\n$prefix ALTER COLUMN \"$colName\" $matches[1]\n";
 		
 			// SET null / not null
-			if(!empty($matches[2])) $alterCol .= ",\nALTER COLUMN \"$colName\" SET $matches[2]";
+			if(!empty($matches[2])) $alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" $matches[1] $matches[2]";
 			
 			// SET default (we drop it first, for reasons of precaution)
+			//TODO: changing default values not implemented yet:
 			if(!empty($matches[3])) {
-				$alterCol .= ",\nALTER COLUMN \"$colName\" DROP DEFAULT";
-				$alterCol .= ",\nALTER COLUMN \"$colName\" SET $matches[3]";
+				//$alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" DROP DEFAULT";
+				//$alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" SET $matches[3]";
 			}
 			
 			// SET check constraint (The constraint HAS to be dropped)
 			if(!empty($matches[4])) {
-				$alterCol .= ",\nDROP CONSTRAINT \"{$tableName}_{$colName}_check\"";
-				$alterCol .= ",\nADD CONSTRAINT \"{$tableName}_{$colName}_check\" $matches[4]";
+				$constraint=$this->query("SELECT CC.CONSTRAINT_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$tableName' AND COLUMN_NAME='" . $colName . "';")->first();
+				if($constraint)
+					$alterCol .= ";\n$prefix DROP CONSTRAINT {$constraint['CONSTRAINT_NAME']}";
+					
+				$alterCol .= ";\n$prefix ADD CONSTRAINT \"{$tableName}_{$colName}_check\" $matches[4]";
 			}
 		}
 		
@@ -513,16 +529,7 @@ class MSSQLDatabase extends Database {
 		} else {
 			//create a type-specific index
 			if($indexSpec['type']=='fulltext'){
-				//We need the name of the primary key for this table:
-				//TODO: There MUST be a better way of doing this.... shurely....
-				//$primary_key=$this->query("SELECT [name] FROM syscolumns WHERE [id] IN (SELECT [id] FROM sysobjects WHERE [name] = '$tableName') AND colid IN (SELECT SIK.colid FROM sysindexkeys SIK JOIN sysobjects SO ON SIK.[id] = SO.[id] WHERE SIK.indid = 1 AND SO.[name] = '$tableName');")->first();
-				//$indexes=DB::query("EXEC sp_helpindex '$tableName';");
-				//foreach($indexes as $this_index){
-				//	if($this_index['index_keys']=='ID'){
-				//		$primary_key=$this_index['index_name'];
-				//		break;
-				//	}
-				//}
+				
 				$primary_key=$this->getPrimaryKey($tableName);
 				
 				//First, we need to see if a full text search already exists:
