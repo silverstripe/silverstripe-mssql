@@ -317,6 +317,7 @@ class MSSQLDatabase extends Database {
 
  		if($alterList) {
 			$alterations = implode(",\n", $alterList);
+			//echo 'the alterations are ' . $alterList . '<br>';
 			//$this->query("ALTER TABLE \"$tableName\" " . $alterations);
 			$this->query($alterations);
 		}
@@ -324,6 +325,33 @@ class MSSQLDatabase extends Database {
 		foreach($alterIndexList as $alteration)
 			if($alteration!='')
 				$this->query($alteration);
+	}
+	
+	/*
+	 * This is a private MSSQL-only function which returns specific details about a column's constraints (if any)
+	 */
+	private function ColumnConstraints($tableName, $columnName){
+		$constraint=$this->query("SELECT CC.CONSTRAINT_NAME, CHECK_CLAUSE, COLUMN_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$tableName' AND COLUMN_NAME='" . $columnName . "';")->first();
+		
+		return $constraint;
+	}
+	
+	/*
+	 * Get the actual enum fields from the constraint value:
+	 */
+	private function EnumValuesFromConstraint($constraint){
+						
+		$segments=explode(' OR [', $constraint);
+		$constraints=Array();
+		foreach($segments as $this_segment){
+			$bits=explode(' = ', $this_segment);
+			
+			for($i=1; $i<sizeof($bits); $i+=2)
+				array_unshift($constraints, substr(rtrim($bits[$i], ')'), 1, -1));
+			
+		}
+		
+		return $constraints;
 	}
 	
 	/*
@@ -369,7 +397,8 @@ class MSSQLDatabase extends Database {
 			
 			// SET check constraint (The constraint HAS to be dropped)
 			if(!empty($matches[4])) {
-				$constraint=$this->query("SELECT CC.CONSTRAINT_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$tableName' AND COLUMN_NAME='" . $colName . "';")->first();
+				//$constraint=$this->query("SELECT CC.CONSTRAINT_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$tableName' AND COLUMN_NAME='" . $colName . "';")->first();
+				$constraint=$this->ColumnConstraints($tableName, $colName);
 				if($constraint)
 					$alterCol .= ";\n$prefix DROP CONSTRAINT {$constraint['CONSTRAINT_NAME']}";
 					
@@ -452,7 +481,8 @@ class MSSQLDatabase extends Database {
 				case 'varchar':
 					//Check to see if there's a constraint attached to this column:
 					//$constraint=$this->query("SELECT conname,pg_catalog.pg_get_constraintdef(r.oid, true) FROM pg_catalog.pg_constraint r WHERE r.contype = 'c' AND conname='" . $table . '_' . $field['column_name'] . "_check' ORDER BY 1;")->first();
-					$constraint=$this->query("SELECT CHECK_CLAUSE, COLUMN_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$table' AND COLUMN_NAME='" . $field['column_name'] . "';")->first();
+					//$constraint=$this->query("SELECT CHECK_CLAUSE, COLUMN_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$table' AND COLUMN_NAME='" . $field['column_name'] . "';")->first();
+					$constraint=$this->ColumnConstraints($table, $field['column_name']);
 					if($constraint){
 						//Now we need to break this constraint text into bits so we can see what we have:
 						//Examples:
@@ -460,7 +490,7 @@ class MSSQLDatabase extends Database {
 						//([ClassName] = 'Member')
 						
 						//TODO: replace all this with a regular expression!
-						$value=$constraint['CHECK_CLAUSE'];
+						/*$value=$constraint['CHECK_CLAUSE'];
 						
 						$segments=explode(' OR [', $value);
 						$constraints=Array();
@@ -470,7 +500,8 @@ class MSSQLDatabase extends Database {
 							for($i=1; $i<sizeof($bits); $i+=2)
 								array_unshift($constraints, substr(rtrim($bits[$i], ')'), 1, -1));
 							
-						}
+						}*/
+						$constraints=$this->EnumValuesFromConstraint($constraint['CHECK_CLAUSE']);
 						$default=substr($field['column_default'], 2, -2);
 						$field['data_type']=$this->enum(Array('default'=>$default, 'name'=>$field['column_name'], 'enums'=>$constraints));
 					}
@@ -864,11 +895,19 @@ class MSSQLDatabase extends Database {
 	}
 	
 	/**
-	 * Return enum values for the given field
-	 * @todo Make a proper implementation
+	 * Returns the values of the given enum field
+	 * NOTE: Experimental; introduced for db-abstraction and may changed before 2.4 is released.
 	 */
-	function enumValuesForField($tableName, $fieldName) {
-		return array('SiteTree','Page');
+	public function enumValuesForField($tableName, $fieldName) {
+		// Get the enum of all page types from the SiteTree table
+		
+		$constraints=$this->ColumnConstraints($tableName, $fieldName);
+		$classes=Array();
+		if($constraints){
+			$constraints=$this->EnumValuesFromConstraint($constraints['CHECK_CLAUSE']);
+			$classes=$constraints;
+		}
+		return $classes;
 	}
 
 	/**
