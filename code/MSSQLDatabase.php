@@ -56,7 +56,7 @@ class MSSQLDatabase extends Database {
 	 */
 	public function __construct($parameters) {
 		
-		if(function_exists('sqlsrv'))
+		if(function_exists('sqlsrv_connect'))
 			$this->funcPrefix='sqlsrv';
 		else
 			$this->funcPrefix='mssql';
@@ -1094,7 +1094,7 @@ class MSSQLQuery extends Query {
 	 */
 	public function __construct(MSSQLDatabase $database, $handle) {
 		
-		if(function_exists('sqlsrv'))
+		if(function_exists('sqlsrv_connect'))
 			$this->funcPrefix='sqlsrv';
 		else
 			$this->funcPrefix='mssql';
