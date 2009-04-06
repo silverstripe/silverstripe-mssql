@@ -1159,8 +1159,12 @@ class MSSQLQuery extends Query {
 						$output[$columnName] = $value;
 					}
 				}
+				echo 'output from nextRecord (MSSQL):<pre>';
+				print_r($output);
+				echo '</pre>';
 				return $output;
 			} else {
+				echo 'nothing to return from nextRecord<br>';
 				return false;
 			}
 			
@@ -1177,8 +1181,12 @@ class MSSQLQuery extends Query {
 						$output[$columnName] = $value;
 					}
 				}
+				echo 'output from nextRecord (SQLSRV):<pre>';
+				print_r($output);
+				echo '</pre>';
 				return $output;
 			} else {
+				echo 'nothing to return from nextRecord<br>';
 				return false;
 			}
 		}
