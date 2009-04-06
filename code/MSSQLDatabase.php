@@ -183,6 +183,7 @@ class MSSQLDatabase extends Database {
 			Debug::message("\n$sql\n{$endtime}ms\n", false);
 		}
 		
+		echo 'handle for this query: ' . $handle . '<br>';
 		DB::$lastQuery=$handle;
 		
 		if(!$handle && $errorLevel) $this->databaseError("Couldn't run query: $sql", $errorLevel);
@@ -1119,35 +1120,35 @@ class MSSQLQuery extends Query {
 		$funcName($this->handle);
 	}
 	
+	/*
+	 * Please see the comments below for numRecords
+	 * 
+	 */
 	public function seek($row) {
 		if($this->funcPrefix=='mssql')
 			return mssql_data_seek($this->handle, $row);
-		else {
-			$count=0;
-			while ($result=sqlsrv_fetch_array($this->handle)){
-				if($count==$row)
-					break;
-				$count++;
-			}
-			
-			return $result;
-			
-		}
+		else
+			return false;
 	}
 	
+	/*
+	 * If we're running the sqlsrv set of functions, then the dataobject set is a forward-only curser
+	 * Therefore, we do not have access to the number of rows that this result contains
+	 * This is (usually) called from Database::rewind(), which in turn seems to be called when a foreach...
+	 * is started on a recordset
+	 * 
+	 * For this function, and seek() (above), we will be returning false.
+	 * 
+	 */
 	public function numRecords() {
 		if($this->funcPrefix=='mssql')
-			$funcName=$this->funcPrefix . '_num_rows';
-		else {
-			$funcName=$this->funcPrefix . '_rows_affected';
-			while ($result=sqlsrv_fetch_array($this->handle)){ }
-		}
-		
-		return $funcName($this->handle);
+			return mssql_num_rows($this->handle);
+		else
+			return false;			
 	}
 	
 	public function nextRecord() {
-		echo 'running nextRecord<br>';
+		//echo 'running nextRecord<br>';
 		// Coalesce rather than replace common fields.
 		if($this->funcPrefix=='mssql'){
 			if($data = mssql_fetch_row($this->handle)) {
@@ -1159,12 +1160,12 @@ class MSSQLQuery extends Query {
 						$output[$columnName] = $value;
 					}
 				}
-				echo 'output from nextRecord (MSSQL):<pre>';
-				print_r($output);
-				echo '</pre>';
+				//echo 'output from nextRecord (MSSQL):<pre>';
+				//print_r($output);
+				//echo '</pre>';
 				return $output;
 			} else {
-				echo 'nothing to return from nextRecord<br>';
+				//echo 'nothing to return from nextRecord<br>';
 				return false;
 			}
 			
@@ -1172,8 +1173,8 @@ class MSSQLQuery extends Query {
 			//Data returns true or false, NOT the actual row
 			if($data = sqlsrv_fetch($this->handle)) {
 				//Now we need to get each row as a stream
-				foreach($data as $columnIdx => $value) {
-				//while($row=sqlsrv_get_field(DB::$lastQuery)){
+				//foreach($data as $columnIdx => $value) {
+				while($row=sqlsrv_get_field(DB::$lastQuery)){
 					$columnName = sqlsrv_field_name($this->handle, $columnIdx);
 					// $value || !$ouput[$columnName] means that the *last* occurring value is shown
 					// !$ouput[$columnName] means that the *first* occurring value is shown
@@ -1181,12 +1182,12 @@ class MSSQLQuery extends Query {
 						$output[$columnName] = $value;
 					}
 				}
-				echo 'output from nextRecord (SQLSRV):<pre>';
-				print_r($output);
-				echo '</pre>';
+				//echo 'output from nextRecord (SQLSRV):<pre>';
+				//print_r($output);
+				//echo '</pre>';
 				return $output;
 			} else {
-				echo 'nothing to return from nextRecord<br>';
+				//echo 'nothing to return from nextRecord<br>';
 				return false;
 			}
 		}
