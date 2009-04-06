@@ -1119,8 +1119,19 @@ class MSSQLQuery extends Query {
 	}
 	
 	public function seek($row) {
-		$funcName=$this->funcPrefix . '_data_seek';
-		return $funcName($this->handle, $row);
+		if($this->funcPrefix=='mssql')
+			return mssql_data_seek($this->handle, $row);
+		else {
+			$count=0;
+			while ($result=sqlsrv_fetch_array($this->handle)){
+				if($count==$row)
+					break;
+				$count++;
+			}
+			
+			return $result;
+			
+		}
 	}
 	
 	public function numRecords() {
