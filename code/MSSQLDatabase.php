@@ -59,6 +59,7 @@ class MSSQLDatabase extends Database {
 		if(function_exists('sqlsrv_connect')){
 			$this->funcPrefix='sqlsrv';
 			$this->dbConn = sqlsrv_connect($parameters['server'], Array('UID'=>$parameters['username'], 'PWD'=>$parameters['password'], 'Database'=>$parameters['database']));
+			$this->query('USE ' . $parameters['database'] . ';');
 			$this->active=true;
 		} else {
 			$this->funcPrefix='mssql';
@@ -1146,6 +1147,7 @@ class MSSQLQuery extends Query {
 	}
 	
 	public function nextRecord() {
+		echo 'running nextRecord<br>';
 		// Coalesce rather than replace common fields.
 		if($this->funcPrefix=='mssql'){
 			if($data = mssql_fetch_row($this->handle)) {
