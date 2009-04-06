@@ -172,7 +172,10 @@ class MSSQLDatabase extends Database {
 		
 		$funcName=$this->funcPrefix . '_query';
 		
-		$handle = $funcName($sql, $this->dbConn);
+		if($this->funcPrefix=='mssql')
+			$handle = $funcName($sql, $this->dbConn);
+		else
+			$handle = $funcName($this->dbConn, $sql);
 		
 		if(isset($_REQUEST['showqueries'])) {
 			$endtime = round(microtime(true) - $starttime,4);
