@@ -58,7 +58,7 @@ class MSSQLDatabase extends Database {
 		
 		if(function_exists('sqlsrv_connect')){
 			$this->funcPrefix='sqlsrv';
-			$this->dbConn = $connect($parameters['server'], Array('UID'=>$parameters['username'], 'PWD'=>$parameters['password'], 'Database'=>$parameters['database']));
+			$this->dbConn = sqlsrv_connect($parameters['server'], Array('UID'=>$parameters['username'], 'PWD'=>$parameters['password'], 'Database'=>$parameters['database']));
 			$this->active=true;
 		} else {
 			$this->funcPrefix='mssql';
