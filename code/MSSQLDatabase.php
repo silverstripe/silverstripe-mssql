@@ -167,7 +167,7 @@ class MSSQLDatabase extends Database {
 			$starttime = microtime(true);
 		}
 				
-		echo 'sql: ' . $sql . '<br>';
+		//echo 'sql: ' . $sql . '<br>';
 		//Debug::backtrace();
 		
 		//$funcName=$this->funcPrefix . '_query';
@@ -663,7 +663,7 @@ class MSSQLDatabase extends Database {
 	 * @return array
 	 */
 	public function tableList() {
-		foreach($this->query("EXEC sp_tables") as $record) {
+		foreach($this->query('EXEC sp_tables;') as $record) {
 			$table = strtolower($record['TABLE_NAME']);
 			$tables[$table] = $table;
 		}
@@ -1124,27 +1124,50 @@ class MSSQLQuery extends Query {
 	}
 	
 	public function numRecords() {
-		$funcName=$this->funcPrefix . '_num_rows';
+		if($this->funcPrefix=='mssql')
+			$funcName=$this->funcPrefix . '_num_rows';
+		else {
+			$funcName=$this->funcPrefix . '_rows_affected';
+			while ($result=sqlsrv_fetch_array($this->handle)){ }
+		}
+		
 		return $funcName($this->handle);
 	}
 	
 	public function nextRecord() {
 		// Coalesce rather than replace common fields.
-		$fetch_row=$this->funcPrefix . '_fetch_row';
-		$field_name=$this->funcPrefix . '_field_name';
-		
-		if($data = $fetch_row($this->handle)) {
-			foreach($data as $columnIdx => $value) {
-				$columnName = $field_name($this->handle, $columnIdx);
-				// $value || !$ouput[$columnName] means that the *last* occurring value is shown
-				// !$ouput[$columnName] means that the *first* occurring value is shown
-				if(isset($value) || !isset($output[$columnName])) {
-					$output[$columnName] = $value;
+		if($this->funcPrefix=='mssql'){
+			if($data = mssql_fetch_row($this->handle)) {
+				foreach($data as $columnIdx => $value) {
+					$columnName = mssql_field_name($this->handle, $columnIdx);
+					// $value || !$ouput[$columnName] means that the *last* occurring value is shown
+					// !$ouput[$columnName] means that the *first* occurring value is shown
+					if(isset($value) || !isset($output[$columnName])) {
+						$output[$columnName] = $value;
+					}
 				}
+				return $output;
+			} else {
+				return false;
 			}
-			return $output;
+			
 		} else {
-			return false;
+			//Data returns true or false, NOT the actual row
+			if($data = sqlsrv_fetch($this->handle)) {
+				//Now we need to get each row as a stream
+				foreach($data as $columnIdx => $value) {
+				//while($row=sqlsrv_get_field(DB::$lastQuery)){
+					$columnName = sqlsrv_field_name($this->handle, $columnIdx);
+					// $value || !$ouput[$columnName] means that the *last* occurring value is shown
+					// !$ouput[$columnName] means that the *first* occurring value is shown
+					if(isset($value) || !isset($output[$columnName])) {
+						$output[$columnName] = $value;
+					}
+				}
+				return $output;
+			} else {
+				return false;
+			}
 		}
 	}
 	
