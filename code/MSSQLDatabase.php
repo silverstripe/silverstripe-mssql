@@ -167,15 +167,15 @@ class MSSQLDatabase extends Database {
 			$starttime = microtime(true);
 		}
 				
-		//echo 'sql: ' . $sql . '<br>';
+		echo 'sql: ' . $sql . '<br>';
 		//Debug::backtrace();
 		
-		$funcName=$this->funcPrefix . '_query';
+		//$funcName=$this->funcPrefix . '_query';
 		
 		if($this->funcPrefix=='mssql')
-			$handle = $funcName($sql, $this->dbConn);
+			$handle = mssql_query($sql, $this->dbConn);
 		else
-			$handle = $funcName($this->dbConn, $sql);
+			$handle = sqlsrv_query($this->dbConn, $sql);
 		
 		if(isset($_REQUEST['showqueries'])) {
 			$endtime = round(microtime(true) - $starttime,4);
