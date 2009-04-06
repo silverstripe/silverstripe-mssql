@@ -56,18 +56,24 @@ class MSSQLDatabase extends Database {
 	 */
 	public function __construct($parameters) {
 		
-		if(function_exists('sqlsrv_connect'))
+		if(function_exists('sqlsrv_connect')){
 			$this->funcPrefix='sqlsrv';
-		else
+			$this->dbConn = $connect($parameters['server'], Array('UID'=>$parameters['username'], 'PWD'=>$parameters['password'], 'Database'=>$parameters['database']));
+			$this->active=true;
+		} else {
 			$this->funcPrefix='mssql';
+			$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password']);
+			$this->active = mssql_select_db($parameters['database'], $this->dbConn);
+		}
 		
 		//Set up the database function names
-		$connect=$this->funcPrefix . '_connect';
-		$select_db=$this->funcPrefix . '_select_db';
+		//$connect=$this->funcPrefix . '_connect';
+		//$select_db=$this->funcPrefix . '_select_db';
 		
 		//assumes that the server and dbname will always be provided:
-		$this->dbConn = $connect($parameters['server'], $parameters['username'], $parameters['password']);
-		$this->active = $select_db($parameters['database'], $this->dbConn);
+		
+		//$this->dbConn = $connect($parameters['server'], $parameters['username'], $parameters['password']);
+		//$this->active = $select_db($parameters['database'], $this->dbConn);
 		$this->database = $parameters['database'];
 		
 		if(!$this->dbConn) {
@@ -75,7 +81,7 @@ class MSSQLDatabase extends Database {
 		} else {
 			$this->active=true;
 			$this->database = $parameters['database'];
-			$select_db($parameters['database'], $this->dbConn);
+			//$select_db($parameters['database'], $this->dbConn);
 		}
 
 		parent::__construct();
