@@ -30,23 +30,6 @@ class MSSQLDatabase extends Database {
 	private $database;
 	
 	/**
-	 * Holds either mssql or sqlsrv, depending on what's available on the server.
-	 *
-	 * @var string
-	 */
-	private $funcPrefix;
-	
-	/*function connect($server, $username, $password){
-		$func = $this->funcPrefix . '_connect';
-		
-		
-		if(MSSQL_COMPATIBLE)
-			return $func($server, $username, $password);
-		else
-			return sqlsrv_connect($server, $username, $password);
-	}*/
-	
-	/**
 	 * Connect to a MS SQL database.
 	 * @param array $parameters An map of parameters, which should include:
 	 *  - server: The server, eg, localhost
@@ -56,25 +39,9 @@ class MSSQLDatabase extends Database {
 	 */
 	public function __construct($parameters) {
 		
-		if(function_exists('sqlsrv_connect')){
-			$this->funcPrefix='sqlsrv';
-			$this->dbConn = sqlsrv_connect($parameters['server'], Array('UID'=>$parameters['username'], 'PWD'=>$parameters['password'], 'Database'=>$parameters['database']));
-			$this->query('USE ' . $parameters['database'] . ';');
-			$this->active=true;
-		} else {
-			$this->funcPrefix='mssql';
-			$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password']);
-			$this->active = mssql_select_db($parameters['database'], $this->dbConn);
-		}
+		$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password']);
+		$this->active = mssql_select_db($parameters['database'], $this->dbConn);
 		
-		//Set up the database function names
-		//$connect=$this->funcPrefix . '_connect';
-		//$select_db=$this->funcPrefix . '_select_db';
-		
-		//assumes that the server and dbname will always be provided:
-		
-		//$this->dbConn = $connect($parameters['server'], $parameters['username'], $parameters['password']);
-		//$this->active = $select_db($parameters['database'], $this->dbConn);
 		$this->database = $parameters['database'];
 		
 		if(!$this->dbConn) {
@@ -82,7 +49,7 @@ class MSSQLDatabase extends Database {
 		} else {
 			$this->active=true;
 			$this->database = $parameters['database'];
-			//$select_db($parameters['database'], $this->dbConn);
+			mssql_select_db($parameters['database'], $this->dbConn);
 		}
 
 		parent::__construct();
@@ -168,22 +135,19 @@ class MSSQLDatabase extends Database {
 			$starttime = microtime(true);
 		}
 				
-		//echo 'sql: ' . $sql . '<br>';
+		echo 'sql: ' . $sql . '<br>';
 		//Debug::backtrace();
 		
-		//$funcName=$this->funcPrefix . '_query';
-		
-		if($this->funcPrefix=='mssql')
+		//if($sql!='')
 			$handle = mssql_query($sql, $this->dbConn);
-		else
-			$handle = sqlsrv_query($this->dbConn, $sql);
-		
+		//else
+		//	$handle=null;
+			
 		if(isset($_REQUEST['showqueries'])) {
 			$endtime = round(microtime(true) - $starttime,4);
 			Debug::message("\n$sql\n{$endtime}ms\n", false);
 		}
 		
-		echo 'handle for this query: ' . $handle . '<br>';
 		DB::$lastQuery=$handle;
 		
 		if(!$handle && $errorLevel) $this->databaseError("Couldn't run query: $sql", $errorLevel);
@@ -677,8 +641,7 @@ class MSSQLDatabase extends Database {
 	 * @return int
 	 */
 	public function affectedRows() {
-		$funcName=$this->funcPrefix . '_rows_affected';
-		return $funcName($this->dbConn);
+		return mssql_rows_affected($this->dbConn);
 	}
 	
 	/**
@@ -1092,32 +1055,19 @@ class MSSQLQuery extends Query {
 	private $handle;
 
 	/**
-	 * Holds either mssql or sqlsrv, depending on what's available on the server.
-	 *
-	 * @var string
-	 */
-	private $funcPrefix;
-	
-	/**
 	 * Hook the result-set given into a Query class, suitable for use by sapphire.
 	 * @param database The database object that created this query.
 	 * @param handle the internal mysql handle that is points to the resultset.
 	 */
 	public function __construct(MSSQLDatabase $database, $handle) {
 		
-		if(function_exists('sqlsrv_connect'))
-			$this->funcPrefix='sqlsrv';
-		else
-			$this->funcPrefix='mssql';
-			
 		$this->database = $database;
 		$this->handle = $handle;
 		parent::__construct();
 	}
 	
 	public function __destroy() {
-		$funcName=$this->funcPrefix . '_free_result';
-		$funcName($this->handle);
+		mssql_free_result($this->handle);
 	}
 	
 	/*
@@ -1125,10 +1075,7 @@ class MSSQLQuery extends Query {
 	 * 
 	 */
 	public function seek($row) {
-		if($this->funcPrefix=='mssql')
-			return mssql_data_seek($this->handle, $row);
-		else
-			return false;
+		return mssql_data_seek($this->handle, $row);
 	}
 	
 	/*
@@ -1141,55 +1088,24 @@ class MSSQLQuery extends Query {
 	 * 
 	 */
 	public function numRecords() {
-		if($this->funcPrefix=='mssql')
-			return mssql_num_rows($this->handle);
-		else
-			return false;			
+		return mssql_num_rows($this->handle);			
 	}
 	
 	public function nextRecord() {
-		//echo 'running nextRecord<br>';
 		// Coalesce rather than replace common fields.
-		if($this->funcPrefix=='mssql'){
-			if($data = mssql_fetch_row($this->handle)) {
-				foreach($data as $columnIdx => $value) {
-					$columnName = mssql_field_name($this->handle, $columnIdx);
-					// $value || !$ouput[$columnName] means that the *last* occurring value is shown
-					// !$ouput[$columnName] means that the *first* occurring value is shown
-					if(isset($value) || !isset($output[$columnName])) {
-						$output[$columnName] = $value;
-					}
+		if($data = mssql_fetch_row($this->handle)) {
+			foreach($data as $columnIdx => $value) {
+				$columnName = mssql_field_name($this->handle, $columnIdx);
+				// $value || !$ouput[$columnName] means that the *last* occurring value is shown
+				// !$ouput[$columnName] means that the *first* occurring value is shown
+				if(isset($value) || !isset($output[$columnName])) {
+					$output[$columnName] = $value;
 				}
-				//echo 'output from nextRecord (MSSQL):<pre>';
-				//print_r($output);
-				//echo '</pre>';
-				return $output;
-			} else {
-				//echo 'nothing to return from nextRecord<br>';
-				return false;
 			}
 			
+			return $output;
 		} else {
-			//Data returns true or false, NOT the actual row
-			if($data = sqlsrv_fetch($this->handle)) {
-				//Now we need to get each row as a stream
-				//foreach($data as $columnIdx => $value) {
-				while($row=sqlsrv_get_field(DB::$lastQuery)){
-					$columnName = sqlsrv_field_name($this->handle, $columnIdx);
-					// $value || !$ouput[$columnName] means that the *last* occurring value is shown
-					// !$ouput[$columnName] means that the *first* occurring value is shown
-					if(isset($value) || !isset($output[$columnName])) {
-						$output[$columnName] = $value;
-					}
-				}
-				//echo 'output from nextRecord (SQLSRV):<pre>';
-				//print_r($output);
-				//echo '</pre>';
-				return $output;
-			} else {
-				//echo 'nothing to return from nextRecord<br>';
-				return false;
-			}
+			return false;
 		}
 	}
 	
