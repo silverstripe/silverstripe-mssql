@@ -139,6 +139,7 @@ class MSSQLDatabase extends Database {
 		//Debug::backtrace();
 		
 		//if($sql!='')
+		
 			$handle = mssql_query($sql, $this->dbConn);
 		//else
 		//	$handle=null;
@@ -252,23 +253,24 @@ class MSSQLDatabase extends Database {
 	public function alterTable($tableName, $newFields = null, $newIndexes = null, $alteredFields = null, $alteredIndexes = null) {
 		$fieldSchemas = $indexSchemas = "";
 		
-		$alterList = array();
-		if($newFields) foreach($newFields as $k => $v) $alterList[] .= "ADD \"$k\" $v";
+		$newFieldsList = array();
+		if($newFields) foreach($newFields as $k => $v) {
+			$newFieldsList[] .= "$k $v";
+		}
 		
-		$indexList=$this->IndexList($tableName);
+		$indexList = $this->IndexList($tableName);
 		
+		$existingFieldList = array();
 		if($alteredFields) {
 			foreach($alteredFields as $k => $v) {
-				
-				$val=$this->alterTableAlterColumn($tableName, $k, $v, $indexList);
-				if($val!='')
-					$alterList[] .= $val;
+				$val = $this->alterTableAlterColumn($tableName, $k, $v, $indexList);
+				if($val != '') $existingFieldList[] .= $val;
 			}
 		}
 		
 		//DB ABSTRACTION: we need to change the constraints to be a separate 'add' command,
 		//see http://www.postgresql.org/docs/8.1/static/sql-altertable.html
-		$alterIndexList=Array();
+		$alterIndexList = array();
 		if($alteredIndexes) foreach($alteredIndexes as $v) {
 			//TODO: I don't think that these drop index commands will work:
 			if($v['type']!='fulltext'){
@@ -285,21 +287,29 @@ class MSSQLDatabase extends Database {
 			}
  		}
  		
+ 		
  		//Add the new indexes:
  		if($newIndexes) foreach($newIndexes as $k=>$v){
  			$alterIndexList[] = $this->getIndexSqlDefinition($tableName, $k, $v);
  		}
 
- 		if($alterList) {
-			$alterations = implode(",\n", $alterList);
-			//echo 'the alterations are ' . $alterList . '<br>';
-			//$this->query("ALTER TABLE \"$tableName\" " . $alterations);
-			$this->query($alterations);
+		// ADD needs to be added before the columns to add, rather than multiple ADD statements
+		$alterations = '';
+		if($newFieldsList) {
+			$alterations .= "ALTER TABLE \"$tableName\" ADD ";
+			$alterations .= implode(",\n", $newFieldsList);
 		}
 		
-		foreach($alterIndexList as $alteration)
-			if($alteration!='')
-				$this->query($alteration);
+		if($existingFieldList) {
+			$alterations .= implode(",\n", $existingFieldList);
+		}
+		
+		if($alterIndexList) {
+			$alterations .= "ALTER TABLE \"$tableName\" ";
+			$alterations .= implode(",\n", $alterIndexList);
+		}
+
+		$this->query($alterations);
 	}
 	
 	/*
@@ -352,11 +362,12 @@ class MSSQLDatabase extends Database {
 		
 		//drop the index if it exists:
 		$alterCol='';
+		$prefix="ALTER TABLE \"" . $tableName . "\" ";
+		
 		if(isset($indexList[$colName])){
-			$alterCol = "\nDROP INDEX \"$tableName\".ix_{$tableName}_{$colName}";
+			$alterCol = "\n$prefix DROP INDEX \"$tableName\".ix_{$tableName}_{$colName}";
 		}
 		
-		$prefix="ALTER TABLE \"" . $tableName . "\" ";
 		if(isset($matches[1])) {
 			$alterCol .= "\n$prefix ALTER COLUMN \"$colName\" $matches[1]\n";
 		
@@ -723,7 +734,11 @@ class MSSQLDatabase extends Database {
 		//Enums are a bit different. We'll be creating a varchar(255) with a constraint of all the usual enum options.
 		//NOTE: In this one instance, we are including the table name in the values array
 		
-		return "varchar(255) not null default '" . $values['default'] . "' check (\"" . $values['name'] . "\" in ('" . implode('\', \'', $values['enums']) . "'))";
+		$name = $values['name'];
+		$default = $values['default'];
+		$enums = implode('\', \'', $values['enums']);
+		
+		return "varchar(255) not null check(\"$name\" in ('$enums'))";
 		
 	}
 	
