@@ -135,7 +135,7 @@ class MSSQLDatabase extends Database {
 			$starttime = microtime(true);
 		}
 				
-		echo 'sql: ' . $sql . '<br>';
+		//echo 'sql: ' . $sql . '<br>';
 		//Debug::backtrace();
 		
 		//if($sql!='')
