@@ -1,16 +1,11 @@
 <?php
-
 /**
- * @package sapphire
- * @subpackage model
- */
-
-/**
- * MS SQL connector class.
- * @package sapphire
- * @subpackage model
+ * MSSQL connector class.
+ *
+ * @package mssql
  */
 class MSSQLDatabase extends Database {
+
 	/**
 	 * Connection to the DBMS.
 	 * @var resource
@@ -99,7 +94,7 @@ class MSSQLDatabase extends Database {
 	private $mssqlVersion;
 	
 	/**
-	 * Get the version of MySQL.
+	 * Get the version of MSSQL.
 	 * @return float
 	 */
 	public function getVersion() {
@@ -118,7 +113,7 @@ class MSSQLDatabase extends Database {
 	}
 	
 	/**
-	 * Get the database server, namely mysql.
+	 * Get the database server, namely mssql.
 	 * @return string
 	 */
 	public function getDatabaseServer() {
@@ -213,7 +208,7 @@ class MSSQLDatabase extends Database {
 	 */
 	public function selectDatabase($dbname) {
 		$this->database = $dbname;
-		if($this->databaseExists($this->database)) mysql_select_db($this->database, $this->dbConn);
+		if($this->databaseExists($this->database)) mssql_select_db($this->database, $this->dbConn);
 		$this->tableList = $this->fieldList = $this->indexList = null;
 	}
 
@@ -222,7 +217,8 @@ class MSSQLDatabase extends Database {
 	 */
 	public function databaseExists($name) {
 		$SQL_name = Convert::raw2sql($name);
-		return $this->query("SHOW DATABASES LIKE '$SQL_name'")->value() ? true : false;
+		//return $this->query("SELECT '$SQL_name' FROM sys.databases")->value() ? true : false;
+		return false;
 	}
 	
 	public function createTable($tableName, $fields = null, $indexes = null) {
@@ -693,7 +689,6 @@ class MSSQLDatabase extends Database {
 	
 	/**
 	 * Return a date type-formatted string
-	 * For MySQL, we simply return the word 'date', no other parameters are necessary
 	 * 
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
@@ -744,7 +739,6 @@ class MSSQLDatabase extends Database {
 	
 	/**
 	 * Return a float type-formatted string
-	 * For MySQL, we simply return the word 'date', no other parameters are necessary
 	 * 
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
@@ -798,7 +792,6 @@ class MSSQLDatabase extends Database {
 	
 	/**
 	 * Return a time type-formatted string
-	 * For MySQL, we simply return the word 'time', no other parameters are necessary
 	 * 
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
@@ -820,8 +813,8 @@ class MSSQLDatabase extends Database {
 			return 'varchar(' . $values['precision'] . ') null';
 	}
 	
-	/*
-	 * Return a 4 digit numeric type.  MySQL has a proprietary 'Year' type.
+	/**
+	 * Return a 4 digit numeric type.
 	 */
 	public function year($values, $asDbValue=false){
 		if($asDbValue)
@@ -837,7 +830,7 @@ class MSSQLDatabase extends Database {
 	}
 	
 	/**
-	 * Create a fulltext search datatype for MySQL
+	 * Create a fulltext search datatype for MSSQL
 	 *
 	 * @param array $spec
 	 */
@@ -1052,19 +1045,19 @@ class MSSQLDatabase extends Database {
 }
 
 /**
- * A result-set from a MySQL database.
+ * A result-set from a MSSQL database.
  * @package sapphire
  * @subpackage model
  */
 class MSSQLQuery extends Query {
 	/**
-	 * The MySQLDatabase object that created this result set.
-	 * @var MySQLDatabase
+	 * The MSSQLDatabase object that created this result set.
+	 * @var MSSQLDatabase
 	 */
 	private $database;
 	
 	/**
-	 * The internal MySQL handle that points to the result set.
+	 * The internal MSSQL handle that points to the result set.
 	 * @var resource
 	 */
 	private $handle;
@@ -1072,7 +1065,7 @@ class MSSQLQuery extends Query {
 	/**
 	 * Hook the result-set given into a Query class, suitable for use by sapphire.
 	 * @param database The database object that created this query.
-	 * @param handle the internal mysql handle that is points to the resultset.
+	 * @param handle the internal mssql handle that is points to the resultset.
 	 */
 	public function __construct(MSSQLDatabase $database, $handle) {
 		
@@ -1124,7 +1117,5 @@ class MSSQLQuery extends Query {
 		}
 	}
 	
-	
 }
-
 ?>
