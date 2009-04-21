@@ -1,11 +1,16 @@
 <?php
+
 /**
- * MSSQL connector class.
- *
- * @package mssql
+ * @package sapphire
+ * @subpackage model
+ */
+
+/**
+ * MS SQL connector class.
+ * @package sapphire
+ * @subpackage model
  */
 class MSSQLDatabase extends Database {
-
 	/**
 	 * Connection to the DBMS.
 	 * @var resource
@@ -95,21 +100,12 @@ class MSSQLDatabase extends Database {
 	
 	/**
 	 * Get the version of MSSQL.
+	 * NOTE: not yet implemented for MSSQL, we just return 2008; the minimum supported version
 	 * @return float
 	 */
 	public function getVersion() {
 		user_error("getVersion not implemented", E_USER_WARNING);
 		return 2008;
-		/*
-		if(!$this->pgsqlVersion) {
-			//returns something like this: PostgreSQL 8.3.3 on i386-apple-darwin9.3.0, compiled by GCC i686-apple-darwin9-gcc-4.0.1 (GCC) 4.0.1 (Apple Inc. build 5465)
-			$postgres=strlen('PostgreSQL ');
-			$db_version=$this->query("SELECT VERSION()")->value();
-			
-			$this->pgsqlVersion = (float)trim(substr($db_version, $postgres, strpos($db_version, ' on ')));
-		}
-		return $this->pgsqlVersion;
-		*/
 	}
 	
 	/**
@@ -133,12 +129,8 @@ class MSSQLDatabase extends Database {
 		//echo 'sql: ' . $sql . '<br>';
 		//Debug::backtrace();
 		
-		//if($sql!='')
+		$handle = mssql_query($sql, $this->dbConn);
 		
-			$handle = mssql_query($sql, $this->dbConn);
-		//else
-		//	$handle=null;
-			
 		if(isset($_REQUEST['showqueries'])) {
 			$endtime = round(microtime(true) - $starttime,4);
 			Debug::message("\n$sql\n{$endtime}ms\n", false);
@@ -155,6 +147,11 @@ class MSSQLDatabase extends Database {
 		return $this->query("SELECT IDENT_CURRENT('$table')")->value();
 	}
 	
+	/*
+	 * This is a handy helper function which will return the primary key for any paricular table
+	 * In MSSQL, the primary key is often an internal identifier, NOT the standard name (ie, 'ID'),
+	 * so we need to do a lookup for it.
+	 */
 	function getPrimaryKey($tableName){
 		$indexes=DB::query("EXEC sp_helpindex '$tableName';");
 		$primary_key='';
@@ -171,6 +168,8 @@ class MSSQLDatabase extends Database {
 	 * OBSOLETE: Get the ID for the next new record for the table.
 	 * 
 	 * @var string $table The name od the table.
+	 * 
+	 * TODO: remove this?  It's a MySQL legacy thing....
 	 * @return int
 	 */
 	public function getNextID($table) {
@@ -183,6 +182,9 @@ class MSSQLDatabase extends Database {
 		return $this->active ? true : false;
 	}
 	
+	/*
+	 * TODO: test this, as far as I know we haven't got the create method working...
+	 */
 	public function createDatabase() {
 		$this->query("CREATE DATABASE $this->database");
 	}
@@ -208,7 +210,7 @@ class MSSQLDatabase extends Database {
 	 */
 	public function selectDatabase($dbname) {
 		$this->database = $dbname;
-		if($this->databaseExists($this->database)) mssql_select_db($this->database, $this->dbConn);
+		if($this->databaseExists($this->database)) mysql_select_db($this->database, $this->dbConn);
 		$this->tableList = $this->fieldList = $this->indexList = null;
 	}
 
@@ -217,8 +219,7 @@ class MSSQLDatabase extends Database {
 	 */
 	public function databaseExists($name) {
 		$SQL_name = Convert::raw2sql($name);
-		//return $this->query("SELECT '$SQL_name' FROM sys.databases")->value() ? true : false;
-		return false;
+		return $this->query("SHOW DATABASES LIKE '$SQL_name'")->value() ? true : false;
 	}
 	
 	public function createTable($tableName, $fields = null, $indexes = null) {
@@ -249,24 +250,22 @@ class MSSQLDatabase extends Database {
 	public function alterTable($tableName, $newFields = null, $newIndexes = null, $alteredFields = null, $alteredIndexes = null) {
 		$fieldSchemas = $indexSchemas = "";
 		
-		$newFieldsList = array();
-		if($newFields) foreach($newFields as $k => $v) {
-			$newFieldsList[] .= "$k $v";
-		}
+		$alterList = array();
+		if($newFields) foreach($newFields as $k => $v) $alterList[] .= "ADD \"$k\" $v";
 		
-		$indexList = $this->IndexList($tableName);
+		$indexList=$this->IndexList($tableName);
 		
-		$existingFieldList = array();
 		if($alteredFields) {
 			foreach($alteredFields as $k => $v) {
-				$val = $this->alterTableAlterColumn($tableName, $k, $v, $indexList);
-				if($val != '') $existingFieldList[] .= $val;
+				
+				$val=$this->alterTableAlterColumn($tableName, $k, $v, $indexList);
+				if($val!='')
+					$alterList[] .= $val;
 			}
 		}
 		
 		//DB ABSTRACTION: we need to change the constraints to be a separate 'add' command,
-		//see http://www.postgresql.org/docs/8.1/static/sql-altertable.html
-		$alterIndexList = array();
+		$alterIndexList=Array();
 		if($alteredIndexes) foreach($alteredIndexes as $v) {
 			//TODO: I don't think that these drop index commands will work:
 			if($v['type']!='fulltext'){
@@ -283,29 +282,20 @@ class MSSQLDatabase extends Database {
 			}
  		}
  		
- 		
  		//Add the new indexes:
  		if($newIndexes) foreach($newIndexes as $k=>$v){
  			$alterIndexList[] = $this->getIndexSqlDefinition($tableName, $k, $v);
  		}
 
-		// ADD needs to be added before the columns to add, rather than multiple ADD statements
-		$alterations = '';
-		if($newFieldsList) {
-			$alterations .= "ALTER TABLE \"$tableName\" ADD ";
-			$alterations .= implode(",\n", $newFieldsList);
+ 		if($alterList) {
+			foreach($alterList as $this_alteration){
+				$this->query("ALTER TABLE \"$tableName\" $this_alteration;");
+			}
 		}
 		
-		if($existingFieldList) {
-			$alterations .= implode(",\n", $existingFieldList);
-		}
-		
-		if($alterIndexList) {
-			$alterations .= "ALTER TABLE \"$tableName\" ";
-			$alterations .= implode(",\n", $alterIndexList);
-		}
-
-		$this->query($alterations);
+		foreach($alterIndexList as $alteration)
+			if($alteration!='')
+				$this->query($alteration);
 	}
 	
 	/*
@@ -358,12 +348,11 @@ class MSSQLDatabase extends Database {
 		
 		//drop the index if it exists:
 		$alterCol='';
-		$prefix="ALTER TABLE \"" . $tableName . "\" ";
-		
 		if(isset($indexList[$colName])){
-			$alterCol = "\n$prefix DROP INDEX \"$tableName\".ix_{$tableName}_{$colName}";
+			$alterCol = "\nDROP INDEX \"$tableName\".ix_{$tableName}_{$colName}";
 		}
 		
+		$prefix="ALTER TABLE \"" . $tableName . "\" ";
 		if(isset($matches[1])) {
 			$alterCol .= "\n$prefix ALTER COLUMN \"$colName\" $matches[1]\n";
 		
@@ -397,15 +386,12 @@ class MSSQLDatabase extends Database {
 	
 	/**
 	 * Checks a table's integrity and repairs it if necessary.
+	 * NOTE: MSSQL does not appear to support any vacuum or optimise commands
+	 * 
 	 * @var string $tableName The name of the table.
 	 * @return boolean Return true if the table has integrity after the method is complete.
 	 */
 	public function checkAndRepairTable($tableName) {
-		/*
-		$this->runTableCheckCommand("VACUUM FULL \"$tableName\"");
-		*/
-		
-		//NOTE: MSSQL does not appear to support any vacuum or optimise commands
 		return true;
 	}
 	
@@ -453,7 +439,6 @@ class MSSQLDatabase extends Database {
 	}
 	
 	public function fieldList($table) {
-		//Query from http://www.alberton.info/postgresql_meta_info.html
 		//This gets us more information than we need, but I've included it all for the moment....
 		$fields = $this->query("SELECT ordinal_position, column_name, data_type, column_default, is_nullable, character_maximum_length, numeric_precision FROM information_schema.columns WHERE table_name = '$table' ORDER BY ordinal_position;");
 		
@@ -462,27 +447,8 @@ class MSSQLDatabase extends Database {
 			switch($field['data_type']){
 				case 'varchar':
 					//Check to see if there's a constraint attached to this column:
-					//$constraint=$this->query("SELECT conname,pg_catalog.pg_get_constraintdef(r.oid, true) FROM pg_catalog.pg_constraint r WHERE r.contype = 'c' AND conname='" . $table . '_' . $field['column_name'] . "_check' ORDER BY 1;")->first();
-					//$constraint=$this->query("SELECT CHECK_CLAUSE, COLUMN_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$table' AND COLUMN_NAME='" . $field['column_name'] . "';")->first();
 					$constraint=$this->ColumnConstraints($table, $field['column_name']);
 					if($constraint){
-						//Now we need to break this constraint text into bits so we can see what we have:
-						//Examples:
-						//([PasswordEncryption] = 'crc32b' OR [PasswordEncryption] = 'crc32' OR [PasswordEncryption] = 'adler32' OR [PasswordEncryption] = 'gost' OR [PasswordEncryption] = 'snefru' OR [PasswordEncryption] = 'whirlpool' OR [PasswordEncryption] = 'ripemd320' OR [PasswordEncryption] = 'ripemd256' OR [PasswordEncryption] = 'ripemd160' OR [PasswordEncryption] = 'ripemd128' OR [PasswordEncryption] = 'sha512' OR [PasswordEncryption] = 'sha384' OR [PasswordEncryption] = 'sha256' OR [PasswordEncryption] = 'sha1' OR [PasswordEncryption] = 'md5' OR [PasswordEncryption] = 'md4' OR [PasswordEncryption] = 'md2' OR [PasswordEncryption] = 'none')
-						//([ClassName] = 'Member')
-						
-						//TODO: replace all this with a regular expression!
-						/*$value=$constraint['CHECK_CLAUSE'];
-						
-						$segments=explode(' OR [', $value);
-						$constraints=Array();
-						foreach($segments as $this_segment){
-							$bits=explode(' = ', $this_segment);
-							
-							for($i=1; $i<sizeof($bits); $i+=2)
-								array_unshift($constraints, substr(rtrim($bits[$i], ')'), 1, -1));
-							
-						}*/
 						$constraints=$this->EnumValuesFromConstraint($constraint['CHECK_CLAUSE']);
 						$default=substr($field['column_default'], 2, -2);
 						$field['data_type']=$this->enum(Array('default'=>$default, 'name'=>$field['column_name'], 'enums'=>$constraints));
@@ -689,6 +655,7 @@ class MSSQLDatabase extends Database {
 	
 	/**
 	 * Return a date type-formatted string
+	 * For MySQL, we simply return the word 'date', no other parameters are necessary
 	 * 
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
@@ -729,16 +696,13 @@ class MSSQLDatabase extends Database {
 		//Enums are a bit different. We'll be creating a varchar(255) with a constraint of all the usual enum options.
 		//NOTE: In this one instance, we are including the table name in the values array
 		
-		$name = $values['name'];
-		$default = $values['default'];
-		$enums = implode('\', \'', $values['enums']);
-		
-		return "varchar(255) not null check(\"$name\" in ('$enums'))";
+		return "varchar(255) not null default '" . $values['default'] . "' check (\"" . $values['name'] . "\" in ('" . implode('\', \'', $values['enums']) . "'))";
 		
 	}
 	
 	/**
 	 * Return a float type-formatted string
+	 * For MySQL, we simply return the word 'date', no other parameters are necessary
 	 * 
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
@@ -792,6 +756,7 @@ class MSSQLDatabase extends Database {
 	
 	/**
 	 * Return a time type-formatted string
+	 * For MySQL, we simply return the word 'time', no other parameters are necessary
 	 * 
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
@@ -813,8 +778,8 @@ class MSSQLDatabase extends Database {
 			return 'varchar(' . $values['precision'] . ') null';
 	}
 	
-	/**
-	 * Return a 4 digit numeric type.
+	/*
+	 * Return a 4 digit numeric type.  MySQL has a proprietary 'Year' type.
 	 */
 	public function year($values, $asDbValue=false){
 		if($asDbValue)
@@ -830,7 +795,7 @@ class MSSQLDatabase extends Database {
 	}
 	
 	/**
-	 * Create a fulltext search datatype for MSSQL
+	 * Create a fulltext search datatype for MySQL
 	 *
 	 * @param array $spec
 	 */
@@ -1045,19 +1010,19 @@ class MSSQLDatabase extends Database {
 }
 
 /**
- * A result-set from a MSSQL database.
+ * A result-set from a MySQL database.
  * @package sapphire
  * @subpackage model
  */
 class MSSQLQuery extends Query {
 	/**
-	 * The MSSQLDatabase object that created this result set.
-	 * @var MSSQLDatabase
+	 * The MySQLDatabase object that created this result set.
+	 * @var MySQLDatabase
 	 */
 	private $database;
 	
 	/**
-	 * The internal MSSQL handle that points to the result set.
+	 * The internal MySQL handle that points to the result set.
 	 * @var resource
 	 */
 	private $handle;
@@ -1065,7 +1030,7 @@ class MSSQLQuery extends Query {
 	/**
 	 * Hook the result-set given into a Query class, suitable for use by sapphire.
 	 * @param database The database object that created this query.
-	 * @param handle the internal mssql handle that is points to the resultset.
+	 * @param handle the internal mysql handle that is points to the resultset.
 	 */
 	public function __construct(MSSQLDatabase $database, $handle) {
 		
@@ -1117,5 +1082,7 @@ class MSSQLQuery extends Query {
 		}
 	}
 	
+	
 }
+
 ?>
