@@ -251,7 +251,7 @@ class MSSQLDatabase extends Database {
 		$fieldSchemas = $indexSchemas = "";
 		
 		$alterList = array();
-		if($newFields) foreach($newFields as $k => $v) $alterList[] .= "ADD \"$k\" $v";
+		if($newFields) foreach($newFields as $k => $v) $alterList[] .= "ALTER TABLE \"$tableName\" ADD \"$k\" $v";
 		
 		$indexList=$this->IndexList($tableName);
 		
@@ -289,7 +289,9 @@ class MSSQLDatabase extends Database {
 
  		if($alterList) {
 			foreach($alterList as $this_alteration){
-				$this->query("ALTER TABLE \"$tableName\" $this_alteration;");
+				if($this_alteration!=''){
+					$this->query($this_alteration);
+				}
 			}
 		}
 		
@@ -349,7 +351,7 @@ class MSSQLDatabase extends Database {
 		//drop the index if it exists:
 		$alterCol='';
 		if(isset($indexList[$colName])){
-			$alterCol = "\nDROP INDEX \"$tableName\".ix_{$tableName}_{$colName}";
+			$alterCol = "\nDROP INDEX \"$tableName\".ix_{$tableName}_{$colName};";
 		}
 		
 		$prefix="ALTER TABLE \"" . $tableName . "\" ";
