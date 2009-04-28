@@ -38,7 +38,6 @@ class MSSQLDatabase extends Database {
 	 *  - database: The database to connect to
 	 */
 	public function __construct($parameters) {
-		
 		$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password']);
 		$this->active = mssql_select_db($parameters['database'], $this->dbConn);
 		
@@ -212,7 +211,9 @@ class MSSQLDatabase extends Database {
 		$this->database = $dbname;
 		
 		if($this->databaseExists($this->database)) {
-			mssql_select_db($this->database, $this->dbConn);
+			if(mssql_select_db($this->database, $this->dbConn)) {
+				$this->active = true;
+			}
 		}
 		
 		$this->tableList = $this->fieldList = $this->indexList = null;
