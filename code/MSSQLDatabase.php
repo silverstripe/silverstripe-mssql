@@ -210,21 +210,25 @@ class MSSQLDatabase extends Database {
 	 */
 	public function selectDatabase($dbname) {
 		$this->database = $dbname;
-		if($this->databaseExists($this->database)) mssql_select_db($this->database, $this->dbConn);
+		
+		if($this->databaseExists($this->database)) {
+			mssql_select_db($this->database, $this->dbConn);
+		}
+		
 		$this->tableList = $this->fieldList = $this->indexList = null;
 	}
 
 	/**
 	 * Returns true if the named database exists.
+	 * @return boolean
 	 */
 	public function databaseExists($name) {
-		$SQL_name = Convert::raw2sql($name);
-		
 		$listDBs = $this->query('SELECT NAME FROM sys.sysdatabases');
-		foreach($listDBs as $listedDB) {
-			if($listedDB['NAME'] == $name) return true;
+		if($listDBs) {
+			foreach($listDBs as $listedDB) {
+				if($listedDB['NAME'] == $name) return true;
+			}
 		}
-		
 		return false;
 	}
 	
