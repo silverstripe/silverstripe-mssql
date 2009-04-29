@@ -708,7 +708,7 @@ class MSSQLDatabase extends Database {
 		//Enums are a bit different. We'll be creating a varchar(255) with a constraint of all the usual enum options.
 		//NOTE: In this one instance, we are including the table name in the values array
 		
-		return "varchar(255) not null default \"" . $values['default'] . "\" check(\"" . $values['name'] . "\" in ('" . implode('\', \'', $values['enums']) . "'))";
+		return "varchar(255) not null default '" . $values['default'] . "' check(\"" . $values['name'] . "\" in ('" . implode('\', \'', $values['enums']) . "'))";
 		
 	}
 	
