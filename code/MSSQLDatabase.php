@@ -121,6 +121,8 @@ class MSSQLDatabase extends Database {
 		//echo 'sql: ' . $sql . '<br>';
 		//Debug::backtrace();
 		
+		//$this->lastQueryRun=$sql;
+		
 		$handle = mssql_query($sql, $this->dbConn);
 		
 		if(isset($_REQUEST['showqueries'])) {
@@ -350,7 +352,7 @@ class MSSQLDatabase extends Database {
 		// TODO: this returns an empty array for the following string: int(11) not null auto_increment
 		//		 on second thoughts, why is an auto_increment field being passed through?
 		
-		$pattern = '/^([\w()]+)\s?((?:not\s)?null)?\s?(default\s[\w\']+)?\s?(check\s[\w()\'",\s]+)?$/i';
+		$pattern = '/^([\w()]+)\s?((?:not\s)?null)?\s?(default\s[\w\']+)?\s?(check\s?[\w()\'",\s]+)?$/i';
 		preg_match($pattern, $colSpec, $matches);
 		
 		//if($matches[1]=='serial8')
