@@ -55,9 +55,6 @@ class MSSQLDatabase extends Database {
 		
 		// Configure the connection
 		$this->query('SET QUOTED_IDENTIFIER ON');
-		
-		//Enable full text search.
-		$this->createFullTextCatalog();
 	}
 	
 	/**
@@ -68,13 +65,9 @@ class MSSQLDatabase extends Database {
 	 * TODO: VERY IMPORTANT: move this so it only gets called upon a dev/build action
 	 */
 	function createFullTextCatalog(){
-			
 		$this->query("exec sp_fulltext_database 'enable';");
-		
-		$result=$this->query("SELECT name FROM sys.fulltext_catalogs;");
-		if(!$result)
-			$this->query("CREATE FULLTEXT CATALOG $this->database;");
-		
+		$result = $this->query("SELECT name FROM sys.fulltext_catalogs WHERE name = 'ftCatalog';")->value();
+		if(!$result) $this->query("CREATE FULLTEXT CATALOG ftCatalog AS DEFAULT;");
 	}
 	/**
 	 * Not implemented, needed for PDO
@@ -186,6 +179,9 @@ class MSSQLDatabase extends Database {
 	 */
 	public function createDatabase() {
 		$this->query("CREATE DATABASE $this->database");
+		if(mssql_select_db($this->database, $this->dbConn)) {
+			$this->active = true;
+		}
 	}
 
 	/**
@@ -193,6 +189,7 @@ class MSSQLDatabase extends Database {
 	 * Use with caution.
 	 */
 	public function dropDatabase() {
+		mssql_select_db('master', $this->dbConn);
 		$this->query("DROP DATABASE $this->database");
 	}
 	
@@ -521,6 +518,8 @@ class MSSQLDatabase extends Database {
 		} else {
 			//create a type-specific index
 			if($indexSpec['type']=='fulltext'){
+				//Enable full text search.
+				$this->createFullTextCatalog();
 				
 				$primary_key=$this->getPrimaryKey($tableName);
 				
@@ -531,7 +530,8 @@ class MSSQLDatabase extends Database {
 				if($result)
 					$drop="DROP FULLTEXT INDEX ON \"" . $tableName . "\";";
 				
-				return $drop . "CREATE FULLTEXT INDEX ON \"$tableName\"	({$indexSpec['value']})	KEY INDEX $primary_key ON $this->database	WITH CHANGE_TRACKING AUTO;";
+				return $drop . "CREATE FULLTEXT INDEX ON \"$tableName\"	({$indexSpec['value']})	" .
+					"KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
 			
 			}
 									
@@ -615,11 +615,19 @@ class MSSQLDatabase extends Database {
 	 * @return array
 	 */
 	public function tableList() {
-		foreach($this->query('EXEC sp_tables;') as $record) {
+		$tables = array();
+		foreach($this->query("EXEC sp_tables @table_owner = 'dbo';") as $record) {
 			$table = strtolower($record['TABLE_NAME']);
 			$tables[$table] = $table;
 		}
-		return isset($tables) ? $tables : null;
+		return $tables;
+	}
+	
+	/**
+	 * Empty the given table of call contentTR
+	 */
+	public function clearTable($table) {
+		$this->query("TRUNCATE TABLE \"$table\"");
 	}
 	
 	/**
