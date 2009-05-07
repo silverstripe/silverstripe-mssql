@@ -705,7 +705,7 @@ class MSSQLDatabase extends Database {
 		
 		if($asDbValue)
 			return Array('data_type'=>'decimal', 'numeric_precision'=>'9,2');
-		else return 'decimal(' . $precision . ') not null';
+		else return 'decimal(' . $precision . ') not null default 0';
 	}
 	
 	/**
@@ -893,6 +893,8 @@ class MSSQLDatabase extends Database {
 	public function sqlQueryToString(SQLQuery $sqlQuery) {
 		if (!$sqlQuery->from) return '';
 		
+		if($sqlQuery->orderby && strtoupper(trim($sqlQuery->orderby)) == 'RAND()') $sqlQuery->orderby = "NEWID()";
+		
 		//TODO: remove me when the limit function supposedly works
 		$sqlQuery->limit='';
 		
@@ -1024,6 +1026,16 @@ class MSSQLDatabase extends Database {
 		$searchResults->setPageLimits($start, $pageLength, $totalCount);
 		
 		return $searchResults;
+	}
+	
+	/**
+	 * Allow auto-increment primary key editing on the given table.
+	 * Some databases need to enable this specially.
+	 * @param $table The name of the table to have PK editing allowed on
+	 * @param $allow True to start, false to finish
+	 */
+	function allowPrimaryKeyEditing($table, $allow = true) {
+		$this->query("SET IDENTITY_INSERT \"$table\" " . ($allow ? "ON" : "OFF"));
 	}
 	
 }
