@@ -446,7 +446,7 @@ class MSSQLDatabase extends Database {
 	public function renameField($tableName, $oldName, $newName) {
 		$fieldList = $this->fieldList($tableName);
 		if(array_key_exists($oldName, $fieldList)) {
-			$this->query("ALTER TABLE \"$tableName\" RENAME COLUMN \"$oldName\" TO \"$newName\"");
+			$this->query("EXEC sp_rename @objname = '$tableName.$oldName', @newname = '$newName', @objtype = 'COLUMN'");
 		}
 	}
 	
@@ -1036,6 +1036,20 @@ class MSSQLDatabase extends Database {
 	 */
 	function allowPrimaryKeyEditing($table, $allow = true) {
 		$this->query("SET IDENTITY_INSERT \"$table\" " . ($allow ? "ON" : "OFF"));
+	}
+
+	/**
+	 * Returns a SQL fragment for querying a fulltext search index
+	 * @param $fields array The list of field names to search on
+	 * @param $keywords string The search query
+	 * @param $booleanSearch A MySQL-specific flag to switch to boolean search
+	 */
+	function fullTextSearchSQL($fields, $keywords, $booleanSearch = false) {
+		$fieldNames = '"' . implode('", "', $fields) . '"';
+
+	 	$SQL_keywords = Convert::raw2sql($keywords);
+
+		return "FREETEXT (($fieldNames), '$SQL_keywords')";
 	}
 	
 }
