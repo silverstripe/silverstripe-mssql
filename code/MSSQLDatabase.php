@@ -30,6 +30,11 @@ class MSSQLDatabase extends Database {
 	private $database;
 	
 	/**
+	 * Does this database have full-text index supprt
+	 */
+	protected $fullTextEnabled = false;
+	
+	/**
 	 * Connect to a MS SQL database.
 	 * @param array $parameters An map of parameters, which should include:
 	 *  - server: The server, eg, localhost
@@ -65,9 +70,11 @@ class MSSQLDatabase extends Database {
 	 * TODO: VERY IMPORTANT: move this so it only gets called upon a dev/build action
 	 */
 	function createFullTextCatalog(){
-		$this->query("exec sp_fulltext_database 'enable';");
-		$result = $this->query("SELECT name FROM sys.fulltext_catalogs WHERE name = 'ftCatalog';")->value();
-		if(!$result) $this->query("CREATE FULLTEXT CATALOG ftCatalog AS DEFAULT;");
+		if($this->fullTextEnabled) {
+			$this->query("exec sp_fulltext_database 'enable';");
+			$result = $this->query("SELECT name FROM sys.fulltext_catalogs WHERE name = 'ftCatalog';")->value();
+			if(!$result) $this->query("CREATE FULLTEXT CATALOG ftCatalog AS DEFAULT;");
+		}
 	}
 	/**
 	 * Not implemented, needed for PDO
@@ -244,9 +251,8 @@ class MSSQLDatabase extends Database {
 		//we need to generate indexes like this: CREATE INDEX IX_vault_to_export ON vault (to_export);
 		//This needs to be done AFTER the table creation, so we can set up the fulltext indexes correctly
 		if($indexes) foreach($indexes as $k => $v) $indexSchemas .= $this->getIndexSqlDefinition($tableName, $k, $v) . "\n";
-		 
+
 		$this->query($indexSchemas);
-		
 	}
 
 	/**
@@ -305,9 +311,9 @@ class MSSQLDatabase extends Database {
 			}
 		}
 		
-		foreach($alterIndexList as $alteration)
-			if($alteration!='')
-				$this->query($alteration);
+		foreach($alterIndexList as $alteration) {
+			if($alteration!='') $this->query($alteration);
+		}
 	}
 	
 	/*
@@ -520,20 +526,22 @@ class MSSQLDatabase extends Database {
 		} else {
 			//create a type-specific index
 			if($indexSpec['type']=='fulltext'){
-				//Enable full text search.
-				$this->createFullTextCatalog();
+				if($this->fullTextEnabled) {
+					//Enable full text search.
+					$this->createFullTextCatalog();
 				
-				$primary_key=$this->getPrimaryKey($tableName);
+					$primary_key=$this->getPrimaryKey($tableName);
 				
-				//First, we need to see if a full text search already exists:
-				$result=$this->query("SELECT object_id FROM sys.fulltext_indexes WHERE object_id=object_id('$tableName');")->first();
+					//First, we need to see if a full text search already exists:
+					$result=$this->query("SELECT object_id FROM sys.fulltext_indexes WHERE object_id=object_id('$tableName');")->first();
 				
-				$drop='';
-				if($result)
-					$drop="DROP FULLTEXT INDEX ON \"" . $tableName . "\";";
+					$drop='';
+					if($result)
+						$drop="DROP FULLTEXT INDEX ON \"" . $tableName . "\";";
 				
-				return $drop . "CREATE FULLTEXT INDEX ON \"$tableName\"	({$indexSpec['value']})	" .
-					"KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
+					return $drop . "CREATE FULLTEXT INDEX ON \"$tableName\"	({$indexSpec['value']})	" .
+						"KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
+				}
 			
 			}
 									
@@ -592,20 +600,22 @@ class MSSQLDatabase extends Database {
   		}
   		
   		//Now we need to check to see if we have any fulltext indexes attached to this table:
-  		$result=DB::query('EXEC sp_help_fulltext_columns;');
-  		$columns='';
-  		foreach($result as $row){
+		if($this->fullTextEnabled) {
+	  		$result=DB::query('EXEC sp_help_fulltext_columns;');
+	  		$columns='';
+	  		foreach($result as $row){
   			
-  			if($row['TABLE_NAME']==$table)
-  				$columns.=$row['FULLTEXT_COLUMN_NAME'] . ',';	
+	  			if($row['TABLE_NAME']==$table)
+	  				$columns.=$row['FULLTEXT_COLUMN_NAME'] . ',';	
   			
-  		}
+	  		}
   		
-  		if($columns!=''){
-  			$columns=trim($columns, ',');
-  			$indexList['SearchFields']['indexname']='SearchFields';
-  			$indexList['SearchFields']['spec']='fulltext (' . $columns . ')';
-  		}
+	  		if($columns!=''){
+	  			$columns=trim($columns, ',');
+	  			$indexList['SearchFields']['indexname']='SearchFields';
+	  			$indexList['SearchFields']['spec']='fulltext (' . $columns . ')';
+	  		}
+	}
 
   		return isset($indexList) ? $indexList : null;
 		
@@ -1002,28 +1012,29 @@ class MSSQLDatabase extends Database {
 	 * @param string $keywords Keywords as a string.
 	 */
 	public function searchEngine($classesToSearch, $keywords, $pageLength = null, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
+		if($this->fullTextEnabled) {
+			$result=DB::query('EXEC sp_help_fulltext_columns;');
 		
-		$result=DB::query('EXEC sp_help_fulltext_columns;');
+			//Get a list of all the tables and columns we'll be searching on:
+			$tables=Array();
+			foreach($result as $row){
+				if(substr($row['TABLE_NAME'], -5)!='_Live' && substr($row['TABLE_NAME'], -9)!='_versions')
+					$tables[]="SELECT ID, '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", N'$keywords')";
+			}
 		
-		//Get a list of all the tables and columns we'll be searching on:
-		$tables=Array();
-		foreach($result as $row){
-			if(substr($row['TABLE_NAME'], -5)!='_Live' && substr($row['TABLE_NAME'], -9)!='_versions')
-				$tables[]="SELECT ID, '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", N'$keywords')";
+			//We'll do a union query on all of these tables... it's easeier!
+			$query=implode(' UNION ', $tables);
+		
+			$result=DB::query($query);
+		
+			$searchResults=new DataObjectSet();
+			foreach($result as $row){
+				$row_result=DataObject::get_by_id($row['Source'], $row['ID']);
+				$searchResults->push($row_result);
+			}
+		
+			$searchResults->setPageLimits($start, $pageLength, $totalCount);
 		}
-		
-		//We'll do a union query on all of these tables... it's easeier!
-		$query=implode(' UNION ', $tables);
-		
-		$result=DB::query($query);
-		
-		$searchResults=new DataObjectSet();
-		foreach($result as $row){
-			$row_result=DataObject::get_by_id($row['Source'], $row['ID']);
-			$searchResults->push($row_result);
-		}
-		
-		$searchResults->setPageLimits($start, $pageLength, $totalCount);
 		
 		return $searchResults;
 	}
