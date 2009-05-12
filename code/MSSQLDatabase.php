@@ -250,9 +250,11 @@ class MSSQLDatabase extends Database {
 
 		//we need to generate indexes like this: CREATE INDEX IX_vault_to_export ON vault (to_export);
 		//This needs to be done AFTER the table creation, so we can set up the fulltext indexes correctly
-		if($indexes) foreach($indexes as $k => $v) $indexSchemas .= $this->getIndexSqlDefinition($tableName, $k, $v) . "\n";
-
-		$this->query($indexSchemas);
+		if($indexes) foreach($indexes as $k => $v) {
+			$indexSchemas .= $this->getIndexSqlDefinition($tableName, $k, $v) . "\n";
+		}
+		
+		if($indexSchemas) $this->query($indexSchemas);
 	}
 
 	/**
