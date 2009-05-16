@@ -794,7 +794,7 @@ class MSSQLDatabase extends Database {
 	 * @return string
 	 */
 	public function time($values){
-		return 'time';
+		return 'time null';
 	}
 	
 	/**
