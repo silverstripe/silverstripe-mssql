@@ -382,8 +382,24 @@ class MSSQLDatabase extends Database {
 			// SET default (we drop it first, for reasons of precaution)
 			//TODO: changing default values not implemented yet:
 			if(!empty($matches[3])) {
+				$constraint_name="{$tableName}_{$colName}_default";
 				//$alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" DROP DEFAULT";
 				//$alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" SET $matches[3]";
+				$constraint_query="
+					SELECT OBJECT_NAME(OBJECT_ID) AS NameofConstraint,
+					SCHEMA_NAME(schema_id) AS SchemaName,
+					OBJECT_NAME(parent_object_id) AS TableName,
+					type_desc AS ConstraintType
+					FROM sys.objects
+					WHERE type_desc LIKE '%CONSTRAINT' AND OBJECT_NAME(parent_object_id)='{$tableName}' AND type_desc='DEFAULT_CONSTRAINT' AND OBJECT_NAME(OBJECT_ID)='$constraint_name'";
+					
+				$constraint_result=$this->query($constraint_query)->first();
+				
+				if($constraint_result){
+					//$alterCol.= ";\n$prefix DROP DEFAULT";
+					$alterCol .= ";\n$prefix DROP CONSTRAINT $constraint_name";
+				}
+				$alterCol .= ";\n$prefix ADD CONSTRAINT \"$constraint_name\" {$matches[3]} FOR $colName";
 			}
 			
 			// SET check constraint (The constraint HAS to be dropped)
@@ -393,7 +409,8 @@ class MSSQLDatabase extends Database {
 				if($constraint)
 					$alterCol .= ";\n$prefix DROP CONSTRAINT {$constraint['CONSTRAINT_NAME']}";
 					
-				$alterCol .= ";\n$prefix ADD CONSTRAINT \"{$tableName}_{$colName}_check\" $matches[4]";
+				//NOTE: 'with nocheck' seems to solve a few problems I've been having for modifying existing tables.
+				$alterCol .= ";\n$prefix WITH NOCHECK ADD CONSTRAINT \"{$tableName}_{$colName}_check\" $matches[4]";
 			}
 		}
 		
@@ -471,7 +488,7 @@ class MSSQLDatabase extends Database {
 					if($constraint){
 						$constraints=$this->EnumValuesFromConstraint($constraint['CHECK_CLAUSE']);
 						$default=substr($field['column_default'], 2, -2);
-						$field['data_type']=$this->enum(Array('default'=>$default, 'name'=>$field['column_name'], 'enums'=>$constraints));
+						$field['data_type']=$this->enum(Array('default'=>$default, 'name'=>$field['column_name'], 'enums'=>$constraints, 'table'=>$table));
 					}
 					
 					$output[$field['column_name']]=$field;
@@ -730,7 +747,8 @@ class MSSQLDatabase extends Database {
 		//Enums are a bit different. We'll be creating a varchar(255) with a constraint of all the usual enum options.
 		//NOTE: In this one instance, we are including the table name in the values array
 		
-		return "varchar(255) not null default '" . $values['default'] . "' check(\"" . $values['name'] . "\" in ('" . implode('\', \'', $values['enums']) . "'))";
+		//return "varchar(255) not null default '" . $values['default'] . "' check(\"" . $values['name'] . "\" in ('" . implode('\', \'', $values['enums']) . "'))";
+		return "varchar(255) not null check(\"" . $values['name'] . "\" in ('" . implode('\', \'', $values['enums']) . "')); add constraint \"" . $values['table'] . '_' . $values['name'] . "_default\" default " . $values['default'] . "' for \"" . $values['name'] . "\"";
 		
 	}
 	
