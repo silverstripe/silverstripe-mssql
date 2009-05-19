@@ -239,7 +239,7 @@ class MSSQLDatabase extends Database {
 		return false;
 	}
 	
-	public function createTable($tableName, $fields = null, $indexes = null) {
+	public function createTable($tableName, $fields = null, $indexes = null, $options = null) {
 		$fieldSchemas = $indexSchemas = "";
 		if($fields) foreach($fields as $k => $v) $fieldSchemas .= "\"$k\" $v,\n";
 		
