@@ -331,7 +331,6 @@ class MSSQLDatabase extends Database {
 	 * Get the actual enum fields from the constraint value:
 	 */
 	private function EnumValuesFromConstraint($constraint){
-						
 		$segments=explode(' OR [', $constraint);
 		$constraints=Array();
 		foreach($segments as $this_segment){
@@ -354,13 +353,13 @@ class MSSQLDatabase extends Database {
 	 * @return string
 	 */
 	private function alterTableAlterColumn($tableName, $colName, $colSpec, $indexList){
-		// Alterations not implemented
-		//return '';
+
 		// First, we split the column specifications into parts
 		// TODO: this returns an empty array for the following string: int(11) not null auto_increment
 		//		 on second thoughts, why is an auto_increment field being passed through?
 		
 		$pattern = '/^([\w()]+)\s?((?:not\s)?null)?\s?(default\s[\w\']+)?\s?(check\s?[\w()\'",\s]+)?$/i';
+		$matches=Array();
 		preg_match($pattern, $colSpec, $matches);
 		
 		//if($matches[1]=='serial8')
@@ -385,7 +384,7 @@ class MSSQLDatabase extends Database {
 				$constraint_name="{$tableName}_{$colName}_default";
 				//$alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" DROP DEFAULT";
 				//$alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" SET $matches[3]";
-				$constraint_query="
+				/*$constraint_query="
 					SELECT OBJECT_NAME(OBJECT_ID) AS NameofConstraint,
 					SCHEMA_NAME(schema_id) AS SchemaName,
 					OBJECT_NAME(parent_object_id) AS TableName,
@@ -399,21 +398,21 @@ class MSSQLDatabase extends Database {
 					//$alterCol.= ";\n$prefix DROP DEFAULT";
 					$alterCol .= ";\n$prefix DROP CONSTRAINT $constraint_name";
 				}
-				$alterCol .= ";\n$prefix ADD CONSTRAINT \"$constraint_name\" {$matches[3]} FOR $colName";
+				$alterCol .= ";\n$prefix ADD CONSTRAINT \"$constraint_name\" {$matches[3]} FOR $colName";*/
 			}
 			
 			// SET check constraint (The constraint HAS to be dropped)
 			if(!empty($matches[4])) {
-				//$constraint=$this->query("SELECT CC.CONSTRAINT_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$tableName' AND COLUMN_NAME='" . $colName . "';")->first();
 				$constraint=$this->ColumnConstraints($tableName, $colName);
 				if($constraint)
 					$alterCol .= ";\n$prefix DROP CONSTRAINT {$constraint['CONSTRAINT_NAME']}";
 					
 				//NOTE: 'with nocheck' seems to solve a few problems I've been having for modifying existing tables.
 				$alterCol .= ";\n$prefix WITH NOCHECK ADD CONSTRAINT \"{$tableName}_{$colName}_check\" $matches[4]";
+				
+				
 			}
 		}
-		
 		return isset($alterCol) ? $alterCol : '';
 	}
 	
@@ -747,8 +746,8 @@ class MSSQLDatabase extends Database {
 		//Enums are a bit different. We'll be creating a varchar(255) with a constraint of all the usual enum options.
 		//NOTE: In this one instance, we are including the table name in the values array
 		
-		//return "varchar(255) not null default '" . $values['default'] . "' check(\"" . $values['name'] . "\" in ('" . implode('\', \'', $values['enums']) . "'))";
-		return "varchar(255) not null check(\"" . $values['name'] . "\" in ('" . implode('\', \'', $values['enums']) . "')); add constraint \"" . $values['table'] . '_' . $values['name'] . "_default\" default " . $values['default'] . "' for \"" . $values['name'] . "\"";
+		return "varchar(255) not null default '" . $values['default'] . "' check(\"" . $values['name'] . "\" in ('" . implode('\', \'', $values['enums']) . "'))";
+		//return "varchar(255) not null check(\"" . $values['name'] . "\" in ('" . implode('\', \'', $values['enums']) . "')); add constraint \"" . $values['table'] . '_' . $values['name'] . "_default\" default '" . $values['default'] . "' for \"" . $values['name'] . "\"";
 		
 	}
 	
