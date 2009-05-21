@@ -239,9 +239,22 @@ class MSSQLDatabase extends Database {
 		return false;
 	}
 	
+	/**
+	 * Create a new table.
+	 * @param $tableName The name of the table
+	 * @param $fields A map of field names to field types
+	 * @param $indexes A map of indexes
+	 * @param $options An map of additional options.  The available keys are as follows:
+	 *   - 'MSSQLDatabase'/'MySQLDatabase'/'PostgreSQLDatabase' - database-specific options such as "engine" for MySQL.
+	 *   - 'temporary' - If true, then a temporary table will be created
+	 * @return The table name generated.  This may be different from the table name, for example with temporary tables.
+	 */
 	public function createTable($tableName, $fields = null, $indexes = null, $options = null) {
 		$fieldSchemas = $indexSchemas = "";
 		if($fields) foreach($fields as $k => $v) $fieldSchemas .= "\"$k\" $v,\n";
+		
+		// Temporary tables start with "#" in MSSQL-land
+		if(!empty($options['temporary'])) $tableName = "#$tableName";
 		
 		$this->query("CREATE TABLE \"$tableName\" (
 				$fieldSchemas
@@ -255,6 +268,8 @@ class MSSQLDatabase extends Database {
 		}
 		
 		if($indexSchemas) $this->query($indexSchemas);
+		
+		return $tableName;
 	}
 
 	/**
