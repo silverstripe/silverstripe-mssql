@@ -55,8 +55,8 @@ class MSSQLDatabase extends Database {
 
 			// Configure the connection
 			$this->query('SET QUOTED_IDENTIFIER ON');
+			$this->query('SET TEXTSIZE 2147483647');
 		}
-		$this->query('SET TEXTSIZE 2147483647');
 	}
 	
 	/**
