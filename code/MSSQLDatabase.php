@@ -56,6 +56,7 @@ class MSSQLDatabase extends Database {
 			// Configure the connection
 			$this->query('SET QUOTED_IDENTIFIER ON');
 		}
+		$this->query('SET TEXTSIZE 2147483647');
 	}
 	
 	/**
@@ -810,9 +811,9 @@ class MSSQLDatabase extends Database {
 	 */
 	public function text($values, $asDbValue=false){
 		if($asDbValue)
-			return Array('data_type'=>'text');
+			return Array('data_type'=>'varchar(max)');
 		else
-			return 'text null';
+			return 'varchar(max) null';
 	}
 	
 	/**
