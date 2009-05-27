@@ -43,23 +43,19 @@ class MSSQLDatabase extends Database {
 	 *  - database: The database to connect to
 	 */
 	public function __construct($parameters) {
+		parent::__construct();
+
 		$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password']);
-		$this->active = mssql_select_db($parameters['database'], $this->dbConn);
-		
-		$this->database = $parameters['database'];
-		
+
 		if(!$this->dbConn) {
 			$this->databaseError("Couldn't connect to MS SQL database");
 		} else {
-			$this->active=true;
 			$this->database = $parameters['database'];
-			mssql_select_db($parameters['database'], $this->dbConn);
-		}
+			$this->selectDatabase($this->database);
 
-		parent::__construct();
-		
-		// Configure the connection
-		$this->query('SET QUOTED_IDENTIFIER ON');
+			// Configure the connection
+			$this->query('SET QUOTED_IDENTIFIER ON');
+		}
 	}
 	
 	/**
@@ -727,9 +723,9 @@ class MSSQLDatabase extends Database {
 	 */
 	public function date($values, $asDbValue=false){
 		if($asDbValue)
-			return 'date';
+			return 'datetime';
 		else
-			return 'date null';
+			return 'datetime null';
 	}
 	
 	/**
