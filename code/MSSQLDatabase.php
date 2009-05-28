@@ -35,6 +35,18 @@ class MSSQLDatabase extends Database {
 	protected $fullTextEnabled = false;
 	
 	/**
+	 * If true, use the mssql_... functions.
+	 * If false use the sqlsrv_... functions
+	 */
+	private $mssql = null;
+
+	/**
+	 * Sorts the last query's affected row count, for sqlsrv module only.
+	 * @todo This is a bit clumsy; affectedRows() should be moved to {@link Query} object, so that this isn't necessary.
+	 */
+	private $lastAffectedRows;
+	
+	/**
 	 * Connect to a MS SQL database.
 	 * @param array $parameters An map of parameters, which should include:
 	 *  - server: The server, eg, localhost
@@ -44,11 +56,27 @@ class MSSQLDatabase extends Database {
 	 */
 	public function __construct($parameters) {
 		parent::__construct();
-
-		$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password']);
+		
+		if(function_exists('mssql_connect')) {
+			$this->mssql = true;
+		} else if(function_exists('sqlsrv_connect')) {
+			$this->mssql = false;
+		} else {
+			user_error("Neither the mssql_connect() nor the sqlsrv_connect() functions are available.  Please install the PHP native mssql module, or the Microsoft-provided sqlsrv module.", E_USER_ERROR);
+		}
+ 		 
+		if($this->mssql) {
+			$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password']);
+		} else {
+			$this->dbConn = sqlsrv_connect($parameters['server'], array(
+				'UID' => $parameters['username'], 
+				'PWD' => $parameters['password'],
+			));
+		}
 
 		if(!$this->dbConn) {
 			$this->databaseError("Couldn't connect to MS SQL database");
+
 		} else {
 			$this->database = $parameters['database'];
 			$this->selectDatabase($this->database);
@@ -57,6 +85,21 @@ class MSSQLDatabase extends Database {
 			$this->query('SET QUOTED_IDENTIFIER ON');
 			$this->query('SET TEXTSIZE 2147483647');
 		}
+	}
+	
+	/**
+	 * Throw a database error
+	 */
+	function databaseError($message, $errorLevel = E_USER_ERROR) {
+		if(!$this->mssql) {
+			$errorMessages = array();
+			foreach(sqlsrv_errors() as $error) {
+				$errorMessages[] = $error['message'];
+			}
+			$message .= ": \n" . implode("; ",$errorMessages);
+		}
+		
+		return parent::databaseError($message, $errorLevel);
 	}
 	
 	/**
@@ -127,7 +170,12 @@ class MSSQLDatabase extends Database {
 		
 		//$this->lastQueryRun=$sql;
 		
-		$handle = mssql_query($sql, $this->dbConn);
+		if($this->mssql) {
+			$handle = mssql_query($sql, $this->dbConn);
+		} else {
+			$handle = sqlsrv_query($this->dbConn, $sql);
+			$this->lastAffectedRows = sqlsrv_rows_affected($handle);
+		}
 		
 		if(isset($_REQUEST['showqueries'])) {
 			$endtime = round(microtime(true) - $starttime,4);
@@ -137,7 +185,7 @@ class MSSQLDatabase extends Database {
 		DB::$lastQuery=$handle;
 		
 		if(!$handle && $errorLevel) $this->databaseError("Couldn't run query: $sql", $errorLevel);
-		return new MSSQLQuery($this, $handle);
+		return new MSSQLQuery($this, $handle, $this->mssql);
 	}
 	
 	public function getGeneratedID($table) {
@@ -184,10 +232,8 @@ class MSSQLDatabase extends Database {
 	 * TODO: test this, as far as I know we haven't got the create method working...
 	 */
 	public function createDatabase() {
-		$this->query("CREATE DATABASE $this->database");
-		if(mssql_select_db($this->database, $this->dbConn)) {
-			$this->active = true;
-		}
+		$this->query("CREATE DATABASE \"$this->database\"");
+		$this->selectDatabase($dbname);
 	}
 
 	/**
@@ -195,8 +241,9 @@ class MSSQLDatabase extends Database {
 	 * Use with caution.
 	 */
 	public function dropDatabase() {
-		mssql_select_db('master', $this->dbConn);
-		$this->query("DROP DATABASE $this->database");
+		$this->selectDatabase('master');
+		$this->query("DROP DATABASE \"$this->database\"");
+		$this->active = false;
 	}
 	
 	/**
@@ -214,7 +261,12 @@ class MSSQLDatabase extends Database {
 		$this->database = $dbname;
 		
 		if($this->databaseExists($this->database)) {
-			if(mssql_select_db($this->database, $this->dbConn)) {
+			if($this->mssql) {
+				if(mssql_select_db($this->database, $this->dbConn)) {
+					$this->active = true;
+				}
+			} else {
+				$this->query("USE \"$this->database\"");
 				$this->active = true;
 			}
 		}
@@ -677,7 +729,11 @@ class MSSQLDatabase extends Database {
 	 * @return int
 	 */
 	public function affectedRows() {
-		return mssql_rows_affected($this->dbConn);
+		if($this->mssql) {
+			return mssql_rows_affected($this->dbConn);
+		} else {
+			return $this->lastAffectedRows;
+		}
 	}
 	
 	/**
@@ -1113,21 +1169,34 @@ class MSSQLQuery extends Query {
 	 * @var resource
 	 */
 	private $handle;
+	
+	/**
+	 * If true, use the mssql_... functions.
+	 * If false use the sqlsrv_... functions
+	 */
+	private $mssql = null;
 
 	/**
 	 * Hook the result-set given into a Query class, suitable for use by sapphire.
 	 * @param database The database object that created this query.
 	 * @param handle the internal mssql handle that is points to the resultset.
 	 */
-	public function __construct(MSSQLDatabase $database, $handle) {
+	public function __construct(MSSQLDatabase $database, $handle, $mssql) {
 		
 		$this->database = $database;
 		$this->handle = $handle;
+		$this->mssql = $mssql;
+		
 		parent::__construct();
 	}
 	
 	public function __destroy() {
-		mssql_free_result($this->handle);
+		Debug::message("Destroying query");
+		if($this->mssql) {
+			mssql_free_result($this->handle);
+		} else {
+			sqsrv_free_stmt($this->handle);
+		}
 	}
 	
 	/*
@@ -1135,7 +1204,11 @@ class MSSQLQuery extends Query {
 	 * 
 	 */
 	public function seek($row) {
-		return mssql_data_seek($this->handle, $row);
+		if($this->mssql) {
+			return mssql_data_seek($this->handle, $row);
+		} else {
+			user_error("MSSQLQuery::seek() sqlserv doesn't support seek.", E_USER_WARNING);
+		}
 	}
 	
 	/*
@@ -1148,24 +1221,50 @@ class MSSQLQuery extends Query {
 	 * 
 	 */
 	public function numRecords() {
-		return mssql_num_rows($this->handle);			
+		if($this->mssql) {
+			return mssql_num_rows($this->handle);
+		} else {
+			user_error("MSSQLQuery::numRecords() sqlserv doesn't support numRecords.", E_USER_WARNING);
+		}
 	}
 	
 	public function nextRecord() {
 		// Coalesce rather than replace common fields.
-		if($data = mssql_fetch_row($this->handle)) {
-			foreach($data as $columnIdx => $value) {
-				$columnName = mssql_field_name($this->handle, $columnIdx);
-				// $value || !$ouput[$columnName] means that the *last* occurring value is shown
-				// !$ouput[$columnName] means that the *first* occurring value is shown
-				if(isset($value) || !isset($output[$columnName])) {
-					$output[$columnName] = $value;
+		if($this->mssql) {
+			if($data = mssql_fetch_row($this->handle)) {
+				foreach($data as $columnIdx => $value) {
+					$columnName = mssql_field_name($this->handle, $columnIdx);
+					// $value || !$ouput[$columnName] means that the *last* occurring value is shown
+					// !$ouput[$columnName] means that the *first* occurring value is shown
+					if(isset($value) || !isset($output[$columnName])) {
+						$output[$columnName] = $value;
+					}
 				}
+			
+				return $output;
+			} else {
+				return false;
 			}
 			
-			return $output;
 		} else {
-			return false;
+			if($data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_NUMERIC)) {
+				$output = array();
+				$fields = sqlsrv_field_metadata($this->handle);
+				foreach($fields as $columnIdx => $field) {
+					$value = $data[$columnIdx];
+					if($value instanceof DateTime) $value = $value->format('Y-m-d h:i:s');
+					
+					// $value || !$ouput[$columnName] means that the *last* occurring value is shown
+					// !$ouput[$columnName] means that the *first* occurring value is shown
+					if(isset($value) || !isset($output[$field['Name']])) {
+						$output[$field['Name']] = $value;
+					}
+				}
+				return $output;
+			} else {
+				return false;
+			}
+			
 		}
 	}
 	
