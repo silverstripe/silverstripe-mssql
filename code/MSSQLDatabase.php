@@ -1193,7 +1193,7 @@ class MSSQLQuery extends Query {
 		if($this->mssql) {
 			mssql_free_result($this->handle);
 		} else {
-			sqsrv_free_stmt($this->handle);
+			sqlsrv_free_stmt($this->handle);
 		}
 	}
 	
@@ -1214,6 +1214,9 @@ class MSSQLQuery extends Query {
 	 * Therefore, we do not have access to the number of rows that this result contains
 	 * This is (usually) called from Database::rewind(), which in turn seems to be called when a foreach...
 	 * is started on a recordset
+	 *
+	 * If you are using SQLSRV, this functon will just return a true or false based on whether you got
+	 * /ANY/ rows.
 	 * 
 	 * For this function, and seek() (above), we will be returning false.
 	 * 
@@ -1222,7 +1225,8 @@ class MSSQLQuery extends Query {
 		if($this->mssql) {
 			return mssql_num_rows($this->handle);
 		} else {
-			user_error("MSSQLQuery::numRecords() sqlserv doesn't support numRecords.", E_USER_WARNING);
+			$this->firstRecord = $this->nextRecord();
+			return count($this->firstRecord) ? true : false;
 		}
 	}
 	
@@ -1245,6 +1249,11 @@ class MSSQLQuery extends Query {
 			}
 			
 		} else {
+			if isset($this->firstRecord) && $this->firstRecord) {
+				$toReturn = $this->firstRecord;
+				$this->firstRecord = false;
+				return $toReturn;
+			}
 			if($data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_NUMERIC)) {
 				$output = array();
 				$fields = sqlsrv_field_metadata($this->handle);
