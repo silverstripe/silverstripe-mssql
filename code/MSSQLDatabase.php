@@ -1249,7 +1249,7 @@ class MSSQLQuery extends Query {
 			}
 			
 		} else {
-			if isset($this->firstRecord) && $this->firstRecord) {
+			if (isset($this->firstRecord) && $this->firstRecord) {
 				$toReturn = $this->firstRecord;
 				$this->firstRecord = false;
 				return $toReturn;
