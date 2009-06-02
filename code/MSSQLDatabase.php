@@ -165,16 +165,10 @@ class MSSQLDatabase extends Database {
 			$starttime = microtime(true);
 		}
 				
-		//echo 'sql: ' . $sql . '<br>';
-		//Debug::backtrace();
-		
-		//$this->lastQueryRun=$sql;
-		
 		if($this->mssql) {
 			$handle = mssql_query($sql, $this->dbConn);
 		} else {
 			$handle = sqlsrv_query($this->dbConn, $sql);
-			$this->lastAffectedRows = sqlsrv_rows_affected($handle);
 		}
 		
 		if(isset($_REQUEST['showqueries'])) {
@@ -185,6 +179,10 @@ class MSSQLDatabase extends Database {
 		DB::$lastQuery=$handle;
 		
 		if(!$handle && $errorLevel) $this->databaseError("Couldn't run query: $sql", $errorLevel);
+		
+		if (!$this->mssql) {
+			$this->lastAffectedRows = sqlsrv_rows_affected($handle);
+		}
 		return new MSSQLQuery($this, $handle, $this->mssql);
 	}
 	
