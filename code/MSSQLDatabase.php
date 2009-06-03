@@ -231,7 +231,7 @@ class MSSQLDatabase extends Database {
 	 */
 	public function createDatabase() {
 		$this->query("CREATE DATABASE \"$this->database\"");
-		$this->selectDatabase($dbname);
+		$this->selectDatabase($this->database);
 	}
 
 	/**
