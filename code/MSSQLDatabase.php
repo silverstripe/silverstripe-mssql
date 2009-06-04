@@ -228,6 +228,7 @@ class MSSQLDatabase extends Database {
 	
 	/*
 	 * TODO: test this, as far as I know we haven't got the create method working...
+	 * 4th Jun 09 / Tom Rix - worked for me
 	 */
 	public function createDatabase() {
 		$this->query("CREATE DATABASE \"$this->database\"");
@@ -990,9 +991,6 @@ class MSSQLDatabase extends Database {
 		
 		if($sqlQuery->orderby && strtoupper(trim($sqlQuery->orderby)) == 'RAND()') $sqlQuery->orderby = "NEWID()";
 		
-		//TODO: remove me when the limit function supposedly works
-		$sqlQuery->limit='';
-		
 		//Get the limit and offset
 		$limit='';
 		$offset='0';
@@ -1011,6 +1009,18 @@ class MSSQLDatabase extends Database {
 		
 		$text='';
 		$limitText='';
+		
+		// If there's a limit but no offset, just use 'TOP X'
+		// rather than the more complex sub-select method
+		if ($limit != 0 && $offset == 0) {
+			$limitText = 'SELECT TOP '.$limit;
+			$sqlQuery->limit = null;
+		} 
+		
+		// Uncomment this to enable the EXPERIMENTAL offset support
+		$sqlQuery->limit = null;
+		
+		// Geoff's sub-select way
 		if($sqlQuery->limit) {
 			$text='SELECT * FROM ( SELECT ROW_NUMBER() OVER (';
 			$limitText=' ORDER BY ' . $sqlQuery->orderby . ') AS Number,';
@@ -1034,10 +1044,11 @@ class MSSQLDatabase extends Database {
 		if($limitText=='')
 			if($sqlQuery->orderby) $text .= " ORDER BY " . $sqlQuery->orderby;
 
-		// Limit not implemented
+		// Geoff's sub-select way
 		if($sqlQuery->limit){
-			$text.=') AS Numbered WHERE Number BETWEEN ' . $offset . ' AND ' . ($offset+$limit) . ';';
+		 	$text.=') AS Numbered WHERE Number BETWEEN ' . $offset . ' AND ' . ($offset+$limit) . ';';
 		}
+		
 		//if($sqlQuery->limit) {
 			
 			/*
@@ -1059,12 +1070,18 @@ class MSSQLDatabase extends Database {
 					select ROW_NUMBER() over (order by SiteTree.Title) AS RowNum, *
 					FROM SiteTree) as Numbered
 					WHERE RowNum Between 0 And 1;
+				
+				Tom's way	
+				WITH SQLQueryTable AS (
+				    SELECT *,
+				    ROW_NUMBER() OVER (ORDER BY XXX) AS 'SQLQueryRowNumber'
+				    FROM YYY
+				) SELECT * FROM SQLQueryTable WHERE SQLQueryRowNumber BETWEEN 10 AND 20;
 			 */
 			
 			
 		//}
-		
-		
+
 		return $text;
 	}
 	
