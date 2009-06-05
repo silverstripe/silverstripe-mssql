@@ -1111,10 +1111,8 @@ class MSSQLDatabase extends Database {
 	 * 
 	 * @param string $keywords Keywords as a string.
 	 */
-	public function searchEngine($keywords, $pageLength = null, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
-		if($this->fullTextEnabled) {
-			$start = isset($_GET['start']) ? (int)$_GET['start'] : 0;
-			
+	public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
+		if($this->fullTextEnabled) {			
 			//Get a list of all the tables and columns we'll be searching on:
 			$result=DB::query('EXEC sp_help_fulltext_columns');
 			if (!$result->numRecords()) throw Exception('there are no full text columns to search');
