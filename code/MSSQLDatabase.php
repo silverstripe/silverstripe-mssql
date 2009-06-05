@@ -32,7 +32,7 @@ class MSSQLDatabase extends Database {
 	/**
 	 * Does this database have full-text index supprt
 	 */
-	protected $fullTextEnabled = false;
+	protected $fullTextEnabled = true;
 	
 	/**
 	 * If true, use the mssql_... functions.
@@ -1109,35 +1109,44 @@ class MSSQLDatabase extends Database {
 	 * The core search engine, used by this class and its subclasses to do fun stuff.
 	 * Searches both SiteTree and File.
 	 * 
-	 * TODO: This is a really basic search system, provided purely so we have something...
-	 * 
 	 * @param string $keywords Keywords as a string.
 	 */
-	public function searchEngine($classesToSearch, $keywords, $pageLength = null, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
+	public function searchEngine($keywords, $pageLength = null, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
 		if($this->fullTextEnabled) {
-			$result=DB::query('EXEC sp_help_fulltext_columns;');
-		
+			$start = isset($_GET['start']) ? (int)$_GET['start'] : 0;
+			
 			//Get a list of all the tables and columns we'll be searching on:
-			$tables=Array();
+			$result=DB::query('EXEC sp_help_fulltext_columns');
+			if (!$result->numRecords()) throw Exception('there are no full text columns to search');
+			$tables= array();
+			
 			foreach($result as $row){
 				if(substr($row['TABLE_NAME'], -5)!='_Live' && substr($row['TABLE_NAME'], -9)!='_versions')
-					$tables[]="SELECT ID, '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", N'$keywords')";
+					$tables[]="SELECT ID, '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", '$keywords')";
 			}
-		
-			//We'll do a union query on all of these tables... it's easeier!
+
+			$totalCount = 0;
+			$this->forceNumRows = true;
+			foreach($tables as $q) {
+				$qR = DB::query($q);
+				$totalCount += $qR->numRecords();
+			}
+			$this->forceNumRows = false;
+			
+			//We'll do a union query on all of these tables... it's easier!
 			$query=implode(' UNION ', $tables);
-		
+			
 			$result=DB::query($query);
-		
 			$searchResults=new DataObjectSet();
+			
 			foreach($result as $row){
 				$row_result=DataObject::get_by_id($row['Source'], $row['ID']);
 				$searchResults->push($row_result);
 			}
-		
+			
 			$searchResults->setPageLimits($start, $pageLength, $totalCount);
 		}
-		
+
 		return $searchResults;
 	}
 	
@@ -1233,7 +1242,8 @@ class MSSQLQuery extends Query {
 	 * is started on a recordset
 	 *
 	 * If you are using SQLSRV, this functon will just return a true or false based on whether you got
-	 * /ANY/ rows.
+	 * /ANY/ rows. UNLESS you set $this->forceNumRows to true, in which case, it will loop over the whole
+	 * rowset, cache it, and then do the count on that. This is probably resource intensive.
 	 * 
 	 * For this function, and seek() (above), we will be returning false.
 	 * 
@@ -1242,15 +1252,38 @@ class MSSQLQuery extends Query {
 		if($this->mssql) {
 			return mssql_num_rows($this->handle);
 		} else {
-			$this->firstRecord = $this->nextRecord();
-			return count($this->firstRecord) ? true : false;
+			// Setting forceNumRows to true will cache all records, but will
+			// be able to give a reliable number of results found.
+			if (isset($this->forceNumRows) && $this->forceNumRows) {
+				if (isset($this->numRecords)) return $this->numRecords;
+				
+				$this->cachedRecords = array();
+				
+				// We can't have nextRecord() return the row we just added =)
+				$this->cachingRows = true;
+						
+				foreach($this as $record) {
+					$this->cachedRecords[] = $record;
+				}
+				
+				$this->cachingRows = false;
+				
+				// Assign it to a var, otherwise the value will change when
+				// something is shifted off the beginning.
+				$this->numRecords = count($this->cachedRecords);
+				return $this->numRecords;
+			} else {
+				$this->cachedRecords = array($this->nextRecord());
+				return count($this->cachedRecords[0]) ? true : false;
+			}
 		}
 	}
 	
 	public function nextRecord() {
 		// Coalesce rather than replace common fields.
-		if($this->mssql) {
+		if($this->mssql) {			
 			if($data = mssql_fetch_row($this->handle)) {
+				
 				foreach($data as $columnIdx => $value) {
 					$columnName = mssql_field_name($this->handle, $columnIdx);
 					// $value || !$ouput[$columnName] means that the *last* occurring value is shown
@@ -1259,17 +1292,18 @@ class MSSQLQuery extends Query {
 						$output[$columnName] = $value;
 					}
 				}
-			
+				
 				return $output;
 			} else {
 				return false;
 			}
 			
 		} else {
-			if (isset($this->firstRecord) && $this->firstRecord) {
-				$toReturn = $this->firstRecord;
-				$this->firstRecord = false;
-				return $toReturn;
+			// If we have cached rows (if numRecords as been called) and
+			// returning cached rows hasn't specifically been disabled,
+			// check for cached rows and return 'em.
+			if (isset($this->cachedRecords) && count($this->cachedRecords) && (!isset($this->cachingRows) || !$this->cachingRows)) {
+				return array_shift($this->cachedRecords);
 			}
 			if($data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_NUMERIC)) {
 				$output = array();
