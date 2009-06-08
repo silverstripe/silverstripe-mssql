@@ -999,6 +999,9 @@ class MSSQLDatabase extends Database {
 			if(isset($sqlQuery->limit['start']))
 				$offset=$sqlQuery->limit['start'];
 			
+		} else if(preg_match('/^([0-9]+) offset ([0-9]+)$/i', trim($sqlQuery->limit), $matches)) {
+			$limit = $matches[1];
+			$offset = $matches[2];
 		} else {
 			//could be a comma delimited string
 			$bits=explode(',', $sqlQuery->limit);
