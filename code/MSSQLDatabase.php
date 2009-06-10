@@ -394,10 +394,10 @@ class MSSQLDatabase extends Database {
 	 * Get the actual enum fields from the constraint value:
 	 */
 	private function EnumValuesFromConstraint($constraint){
-		$segments=explode(' OR [', $constraint);
+		$segments=preg_split('/ +OR *\[/i', $constraint);
 		$constraints=Array();
 		foreach($segments as $this_segment){
-			$bits=explode(' = ', $this_segment);
+			$bits=preg_split('/ *= */', $this_segment);
 			
 			for($i=1; $i<sizeof($bits); $i+=2)
 				array_unshift($constraints, substr(rtrim($bits[$i], ')'), 1, -1));
