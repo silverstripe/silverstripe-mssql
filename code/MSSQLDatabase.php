@@ -480,7 +480,7 @@ class MSSQLDatabase extends Database {
 	}
 	
 	public function renameTable($oldTableName, $newTableName) {
-		$this->query("ALTER TABLE \"$oldTableName\" RENAME \"$newTableName\"");
+		$this->query("EXEC sp_rename \"$oldTableName\", \"$newTableName\"");
 	}
 	
 	/**
