@@ -666,7 +666,7 @@ class MSSQLDatabase extends Database {
 	public function indexList($table) {
 		$indexes=DB::query("EXEC sp_helpindex '$table';");
 		$prefix = '';
-		
+		$indexList = array();
 		
 		foreach($indexes as $index) {
 			
@@ -696,9 +696,9 @@ class MSSQLDatabase extends Database {
 	  			$indexList['SearchFields']['indexname']='SearchFields';
 	  			$indexList['SearchFields']['spec']='fulltext (' . $columns . ')';
 	  		}
-	}
+		}
 
-  		return isset($indexList) ? $indexList : null;
+  		return $indexList;
 		
 	}
 
