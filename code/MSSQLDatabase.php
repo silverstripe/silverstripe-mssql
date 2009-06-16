@@ -1028,7 +1028,7 @@ class MSSQLDatabase extends Database {
 			// If there's a limit but no offset, just use 'TOP X'
 			// rather than the more complex sub-select method
 			if ($limit != 0 && $offset == 0) {
-				$text = "SELECT TOP $limit $distinct ";
+				$text = "SELECT TOP $limit $distinct";
 			
 			// If there's a limit and an offset, then we need to do a subselect
 			} else if($limit && $offset) {
@@ -1038,14 +1038,14 @@ class MSSQLDatabase extends Database {
 					$firstCol = reset($sqlQuery->select);
 					$rowNumber = "ROW_NUMBER() OVER (ORDER BY $firstCol) AS Number";
 				}
-				$text = "SELECT * FROM ( SELECT $rowNumber, ";
+				$text = "SELECT * FROM ( SELECT $distinct$rowNumber, ";
 				$suffixText .= ") AS Numbered WHERE Number BETWEEN " . ($offset+1) ." AND " . ($offset+$limit)
 					. " ORDER BY Number";
 				$nestedQuery = true;
 
 			// Otherwise a simple query
 			} else {
-				$text = "SELECT $distinct ";
+				$text = "SELECT $distinct";
 			}
 			
 			// Now add the columns to be selected
