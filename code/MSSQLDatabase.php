@@ -1006,9 +1006,11 @@ class MSSQLDatabase extends Database {
 		} else {
 			//could be a comma delimited string
 			$bits=explode(',', $sqlQuery->limit);
-			$limit=trim($bits[0]);
-			if(isset($bits[1]))
-				$offset=trim($bits[1]);
+			if(sizeof($bits) > 1) {
+				list($offset, $limit) = $bits;
+			} else {
+				$limit = $bits[0];
+			}
 		}
 		
 		$text = '';
@@ -1030,9 +1032,14 @@ class MSSQLDatabase extends Database {
 			
 			// If there's a limit and an offset, then we need to do a subselect
 			} else if($limit && $offset) {
-				$text = "SELECT * FROM ( SELECT ROW_NUMBER() OVER (ORDER BY $sqlQuery->orderby)"
-				 	. " AS Number, ";
-				$suffixText .= ") AS Numbered WHERE Number BETWEEN $offset AND " . ($offset+$limit)
+				if($sqlQuery->orderby) {
+					$rowNumber = "ROW_NUMBER() OVER (ORDER BY $sqlQuery->orderby) AS Number";
+				} else {
+					$firstCol = reset($sqlQuery->select);
+					$rowNumber = "ROW_NUMBER() OVER (ORDER BY $firstCol) AS Number";
+				}
+				$text = "SELECT * FROM ( SELECT $rowNumber, ";
+				$suffixText .= ") AS Numbered WHERE Number BETWEEN " . ($offset+1) ." AND " . ($offset+$limit)
 					. " ORDER BY Number";
 				$nestedQuery = true;
 
