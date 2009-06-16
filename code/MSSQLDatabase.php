@@ -1011,81 +1011,49 @@ class MSSQLDatabase extends Database {
 				$offset=trim($bits[1]);
 		}
 		
-		$text='';
-		$limitText='';
-		
-		// If there's a limit but no offset, just use 'TOP X'
-		// rather than the more complex sub-select method
-		if ($limit != 0 && $offset == 0) {
-			$limitText = 'SELECT TOP '.$limit;
-			$sqlQuery->limit = null;
-		} 
-		
-		// Uncomment this to enable the EXPERIMENTAL offset support
-		$sqlQuery->limit = null;
-		
-		// Geoff's sub-select way
-		if($sqlQuery->limit) {
-			$text='SELECT * FROM ( SELECT ROW_NUMBER() OVER (';
-			$limitText=' ORDER BY ' . $sqlQuery->orderby . ') AS Number,';
-		}
-		
-		$distinct = $sqlQuery->distinct ? "DISTINCT " : "";
-		
-		//NOTE: Assumes that deletes don't have limit/offset clauses
-		if($sqlQuery->delete)
-			$text = 'DELETE ';
-		else if($sqlQuery->select) {
-			if($limitText=='')
-				$text.='SELECT';
-			$text .= "$limitText $distinct" . implode(", ", $sqlQuery->select);
-		}
-		$text .= " FROM " . implode(" ", $sqlQuery->from);
+		$text = '';
+		$suffixText = '';
+		$nestedQuery = false;
 
+		// DELETE queries
+		if($sqlQuery->delete) {
+			$text = 'DELETE ';
+			
+		// SELECT queries
+		} else {
+			$distinct = $sqlQuery->distinct ? "DISTINCT " : "";
+		
+			// If there's a limit but no offset, just use 'TOP X'
+			// rather than the more complex sub-select method
+			if ($limit != 0 && $offset == 0) {
+				$text = "SELECT TOP $limit $distinct ";
+			
+			// If there's a limit and an offset, then we need to do a subselect
+			} else if($limit && $offset) {
+				$text = "SELECT * FROM ( SELECT ROW_NUMBER() OVER (ORDER BY $sqlQuery->orderby)"
+				 	. " AS Number, ";
+				$suffixText .= ") AS Numbered WHERE Number BETWEEN $offset AND " . ($offset+$limit)
+					. " ORDER BY Number";
+				$nestedQuery = true;
+
+			// Otherwise a simple query
+			} else {
+				$text = "SELECT $distinct ";
+			}
+			
+			// Now add the columns to be selected
+			$text .= implode(", ", $sqlQuery->select);
+		}
+
+		$text .= " FROM " . implode(" ", $sqlQuery->from);
 		if($sqlQuery->where) $text .= " WHERE (" . $sqlQuery->getFilter(). ")";
 		if($sqlQuery->groupby) $text .= " GROUP BY " . implode(", ", $sqlQuery->groupby);
 		if($sqlQuery->having) $text .= " HAVING ( " . implode(" ) AND ( ", $sqlQuery->having) . " )";
-		if($limitText=='')
-			if($sqlQuery->orderby) $text .= " ORDER BY " . $sqlQuery->orderby;
-
-		// Geoff's sub-select way
-		if($sqlQuery->limit){
-		 	$text.=') AS Numbered WHERE Number BETWEEN ' . $offset . ' AND ' . ($offset+$limit) . ';';
-		}
+		if(!$nestedQuery && $sqlQuery->orderby) $text .= " ORDER BY " . $sqlQuery->orderby;
 		
-		//if($sqlQuery->limit) {
-			
-			/*
-			 * For MSSQL, we need to do something different since it doesn't support LIMIT OFFSET as most normal
-			 * databases do
-			 *
-			 * This is our preferred method, but we need to know the primary key name:
-			 *  
-			  	select * from (
-				    select row_number() over (order by $this->orderby) as number, * from MyTable
-				) as numbered
-				where number between 21 and 30
-
-				SELECT * FROM ( 
-					SELECT ROW_NUMBER() OVER (SELECT ORDER BY "Sort") AS Number, "SiteTree".*, "GhostPage".*, "ErrorPage".*, "RedirectorPage".*, "VirtualPage".*, "ExamplePage".*, "SiteTree"."ID", CASE WHEN "SiteTree"."ClassName" IS NOT NULL THEN "SiteTree"."ClassName" ELSE 'SiteTree' END AS "RecordClassName" FROM "SiteTree" LEFT JOIN "GhostPage" ON "GhostPage"."ID" = "SiteTree"."ID" LEFT JOIN "ErrorPage" ON "ErrorPage"."ID" = "SiteTree"."ID" LEFT JOIN "RedirectorPage" ON "RedirectorPage"."ID" = "SiteTree"."ID" LEFT JOIN "VirtualPage" ON "VirtualPage"."ID" = "SiteTree"."ID" LEFT JOIN "ExamplePage" ON "ExamplePage"."ID" = "SiteTree"."ID" WHERE ("URLSegment" = 'home') ORDER BY "Sort"
-				) AS Numbered WHERE Number BETWEEN 0 AND 1;
-
-				SELECT * FROM (
-					select ROW_NUMBER() over (order by SiteTree.Title) AS RowNum, *
-					FROM SiteTree) as Numbered
-					WHERE RowNum Between 0 And 1;
-				
-				Tom's way	
-				WITH SQLQueryTable AS (
-				    SELECT *,
-				    ROW_NUMBER() OVER (ORDER BY XXX) AS 'SQLQueryRowNumber'
-				    FROM YYY
-				) SELECT * FROM SQLQueryTable WHERE SQLQueryRowNumber BETWEEN 10 AND 20;
-			 */
-			
-			
-		//}
-
+		// $suffixText is used by the nested queries to create an offset limit
+		if($suffixText) $text .= $suffixText;
+		
 		return $text;
 	}
 	
