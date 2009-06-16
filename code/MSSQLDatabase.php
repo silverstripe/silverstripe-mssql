@@ -240,8 +240,9 @@ class MSSQLDatabase extends Database {
 	 * Use with caution.
 	 */
 	public function dropDatabase() {
+		$db = $this->database;
 		$this->selectDatabase('master');
-		$this->query("DROP DATABASE \"$this->database\"");
+		$this->query("DROP DATABASE \"$db\"");
 		$this->active = false;
 	}
 	
