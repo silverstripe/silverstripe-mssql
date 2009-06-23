@@ -1091,15 +1091,28 @@ class MSSQLDatabase extends Database {
 	 * @param string $keywords Keywords as a string.
 	 */
 	public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
-		if($this->fullTextEnabled) {			
+		if($this->fullTextEnabled) {	
+			$keywords = Convert::raw2sql(trim($keywords, ' *'));
+			$htmlEntityKeywords = htmlentities($keywords);		
+			
 			//Get a list of all the tables and columns we'll be searching on:
 			$result=DB::query('EXEC sp_help_fulltext_columns');
 			if (!$result->numRecords()) throw Exception('there are no full text columns to search');
 			$tables= array();
 			
 			foreach($result as $row){
-				if(substr($row['TABLE_NAME'], -5)!='_Live' && substr($row['TABLE_NAME'], -9)!='_versions')
-					$tables[]="SELECT ID, '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", '$keywords')";
+				if(substr($row['TABLE_NAME'], -5)!='_Live' && substr($row['TABLE_NAME'], -9)!='_versions') {
+					$thisSql = "SELECT ID, '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE (".
+							"(CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", '$keywords') OR CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", '$htmlEntityKeywords'))";
+					if(strpos($row['TABLE_NAME'], 'SiteTree') === 0) {
+						$thisSql .= " AND ShowInSearch != 0)";//" OR (Title LIKE '%$keywords%' OR Title LIKE '%$htmlEntityKeywords%')";
+					} else {
+						$thisSql .= ')';
+					}
+					
+					$tables[] = $thisSql;
+				}
+				
 			}
 
 			$totalCount = 0;
