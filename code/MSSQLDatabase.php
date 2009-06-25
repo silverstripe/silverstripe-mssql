@@ -840,7 +840,7 @@ class MSSQLDatabase extends Database {
 	public function int($values, $asDbValue=false){
 		//We'll be using an 8 digit precision to keep it in line with the serial8 datatype for ID columns
 		if($asDbValue)
-			return Array('data_type'=>'numeric', 'numeric_precision'=>'8');
+			return Array('data_type'=>'numeric', 'numeric_precision'=>'8', 'default'=>(int)$values['default']);
 		else
 			return 'numeric(8) not null default ' . (int)$values['default'];
 	}
