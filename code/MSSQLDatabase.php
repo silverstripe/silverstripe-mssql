@@ -1028,7 +1028,7 @@ class MSSQLDatabase extends Database {
 			// If there's a limit but no offset, just use 'TOP X'
 			// rather than the more complex sub-select method
 			if ($limit != 0 && $offset == 0) {
-				$text = "SELECT TOP $limit $distinct";
+				$text = "SELECT $distinct TOP $limit";
 			
 			// If there's a limit and an offset, then we need to do a subselect
 			} else if($limit && $offset) {
@@ -1091,7 +1091,7 @@ class MSSQLDatabase extends Database {
 	 * @param string $keywords Keywords as a string.
 	 */
 	public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
-		if($this->fullTextEnabled) {	
+		if($this->fullTextEnabled) {			
 			$keywords = Convert::raw2sql(trim($keywords, ' *'));
 			$htmlEntityKeywords = htmlentities($keywords);		
 			
@@ -1226,7 +1226,7 @@ class MSSQLQuery extends Query {
 	}
 	
 	/*
-	 * If we're running the sqlsrv set of functions, then the dataobject set is a forward-only curser
+	 * If we're running the sqlsrv set of functions, then the dataobject set is a forward-only cursor
 	 * Therefore, we do not have access to the number of rows that this result contains
 	 * This is (usually) called from Database::rewind(), which in turn seems to be called when a foreach...
 	 * is started on a recordset
