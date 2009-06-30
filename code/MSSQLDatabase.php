@@ -1300,7 +1300,7 @@ class MSSQLQuery extends Query {
 				$fields = sqlsrv_field_metadata($this->handle);
 				foreach($fields as $columnIdx => $field) {
 					$value = $data[$columnIdx];
-					if($value instanceof DateTime) $value = $value->format('Y-m-d h:i:s');
+					if($value instanceof DateTime) $value = $value->format('Y-m-d H:i:s');
 					
 					// $value || !$ouput[$columnName] means that the *last* occurring value is shown
 					// !$ouput[$columnName] means that the *first* occurring value is shown
