@@ -1091,9 +1091,25 @@ class MSSQLDatabase extends Database {
 	 * @param string $keywords Keywords as a string.
 	 */
 	public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
-		if($this->fullTextEnabled) {			
-			$keywords = Convert::raw2sql(trim($keywords, ' *'));
-			$htmlEntityKeywords = htmlentities($keywords);		
+		if($this->fullTextEnabled) {
+			$keywords = Convert::raw2sql(trim($keywords));
+			$htmlEntityKeywords = htmlentities($keywords);
+			
+			$keywordList = explode(' ', $keywords);
+			if($keywordList) {
+				foreach($keywordList as $index => $keyword) {
+					$keywordList[$index] = "\"{$keyword}\"";
+				}
+				$keywords = implode(' AND ', $keywordList);
+			}
+			
+			$htmlEntityKeywordList = explode(' ', $htmlEntityKeywords);
+			if($htmlEntityKeywordList) {
+				foreach($htmlEntityKeywordList as $index => $keyword) {
+					$htmlEntityKeywordList[$index] = "\"{$keyword}\"";
+				}
+				$htmlEntityKeywords = implode(' AND ', $htmlEntityKeywordList);
+			}
 			
 			//Get a list of all the tables and columns we'll be searching on:
 			$result=DB::query('EXEC sp_help_fulltext_columns');
