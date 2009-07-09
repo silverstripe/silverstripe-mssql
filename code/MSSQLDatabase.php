@@ -47,6 +47,11 @@ class MSSQLDatabase extends Database {
 	private $lastAffectedRows;
 	
 	/**
+	 * Words that will trigger an error if passed to a SQL Server fulltext search
+	 */
+	protected $noiseWords = array("about", "1", "after", "2", "all", "also", "3", "an", "4", "and", "5", "another", "6", "any", "7", "are", "8", "as", "9", "at", "0", "be", "$", "because", "been", "before", "being", "between", "both", "but", "by", "came", "can", "come", "could", "did", "do", "does", "each", "else", "for", "from", "get", "got", "has", "had", "he", "have", "her", "here", "him", "himself", "his", "how", "if", "in", "into", "is", "it", "its", "just", "like", "make", "many", "me", "might", "more", "most", "much", "must", "my", "never", "no", "now", "of", "on", "only", "or", "other", "our", "out", "over", "re", "said", "same", "see", "should", "since", "so", "some", "still", "such", "take", "than", "that", "the", "their", "them", "then", "there", "these", "they", "this", "those", "through", "to", "too", "under", "up", "use", "very", "want", "was", "way", "we", "well", "were", "what", "when", "where", "which", "while", "who", "will", "with", "would", "you", "your", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z");
+	
+	/**
 	 * Connect to a MS SQL database.
 	 * @param array $parameters An map of parameters, which should include:
 	 *  - server: The server, eg, localhost
@@ -1180,6 +1185,23 @@ class MSSQLDatabase extends Database {
 		return "FREETEXT (($fieldNames), '$SQL_keywords')";
 	}
 	
+	/**
+	 * Remove noise words that would kill a MSSQL full-text query
+	 *
+	 * @param string $keywords 
+	 * @return string $keywords with noise words removed
+	 * @author Tom Rix
+	 */
+	static public function removeNoiseWords($keywords) {
+		$goodWords = array();
+		foreach (explode(' ', $keywords) as $word) {
+			// @todo we may want to remove +'s -'s etc too
+			if (!in_array($word, $this->noiseWords)) {
+				$goodWords[] = $word;
+			}
+		}
+		return join(' ', $goodWords);
+	}
 }
 
 /**
