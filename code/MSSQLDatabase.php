@@ -1,16 +1,12 @@
 <?php
-
 /**
- * @package sapphire
- * @subpackage model
- */
-
-/**
- * MS SQL connector class.
+ * Microsoft SQL Server connector class.
+ * 
  * @package sapphire
  * @subpackage model
  */
 class MSSQLDatabase extends Database {
+	
 	/**
 	 * Connection to the DBMS.
 	 * @var resource
@@ -1354,7 +1350,4 @@ class MSSQLQuery extends Query {
 		}
 	}
 	
-	
 }
-
-?>
