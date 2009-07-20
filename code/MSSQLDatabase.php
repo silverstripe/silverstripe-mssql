@@ -43,6 +43,12 @@ class MSSQLDatabase extends Database {
 	private $lastAffectedRows;
 	
 	/**
+	 * The version of MSSQL
+	 * @var float
+	 */
+	private $mssqlVersion;
+	
+	/**
 	 * Words that will trigger an error if passed to a SQL Server fulltext search
 	 */
 	public static $noiseWords = array("about", "1", "after", "2", "all", "also", "3", "an", "4", "and", "5", "another", "6", "any", "7", "are", "8", "as", "9", "at", "0", "be", "$", "because", "been", "before", "being", "between", "both", "but", "by", "came", "can", "come", "could", "did", "do", "does", "each", "else", "for", "from", "get", "got", "has", "had", "he", "have", "her", "here", "him", "himself", "his", "how", "if", "in", "into", "is", "it", "its", "just", "like", "make", "many", "me", "might", "more", "most", "much", "must", "my", "never", "no", "now", "of", "on", "only", "or", "other", "our", "out", "over", "re", "said", "same", "see", "should", "since", "so", "some", "still", "such", "take", "than", "that", "the", "their", "them", "then", "there", "these", "they", "this", "those", "through", "to", "too", "under", "up", "use", "very", "want", "was", "way", "we", "well", "were", "what", "when", "where", "which", "while", "who", "will", "with", "would", "you", "your", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z");
@@ -127,6 +133,7 @@ class MSSQLDatabase extends Database {
 			if(!$result) $this->query("CREATE FULLTEXT CATALOG ftCatalog AS DEFAULT;");
 		}
 	}
+	
 	/**
 	 * Not implemented, needed for PDO
 	 */
@@ -141,12 +148,6 @@ class MSSQLDatabase extends Database {
 	public function supportsCollations() {
 		return true;
 	}
-	
-	/**
-	 * The version of MSSQL
-	 * @var float
-	 */
-	private $mssqlVersion;
 	
 	/**
 	 * Get the version of MSSQL.
@@ -222,9 +223,7 @@ class MSSQLDatabase extends Database {
 	
 	/**
 	 * OBSOLETE: Get the ID for the next new record for the table.
-	 * 
-	 * @var string $table The name od the table.
-	 * 
+	 * @param string $table The name of the table
 	 * @return int
 	 */
 	public function getNextID($table) {
@@ -237,9 +236,8 @@ class MSSQLDatabase extends Database {
 		return $this->active ? true : false;
 	}
 	
-	/*
-	 * TODO: test this, as far as I know we haven't got the create method working...
-	 * 4th Jun 09 / Tom Rix - worked for me
+	/**
+	 * Create the database that is currently selected.
 	 */
 	public function createDatabase() {
 		$this->query("CREATE DATABASE \"$this->database\"");
@@ -266,7 +264,11 @@ class MSSQLDatabase extends Database {
 	
 	/**
 	 * Switches to the given database.
-	 * If the database doesn't exist, you should call createDatabase() after calling selectDatabase()
+	 * 
+	 * If the database doesn't exist, you should call
+	 * createDatabase() after calling selectDatabase()
+	 * 
+	 * @param string $dbname The database name to switch to
 	 */
 	public function selectDatabase($dbname) {
 		$this->database = $dbname;
@@ -286,7 +288,8 @@ class MSSQLDatabase extends Database {
 	}
 
 	/**
-	 * Returns true if the named database exists.
+	 * Check if the given database exists.
+	 * @param string $name Name of database to check exists
 	 * @return boolean
 	 */
 	public function databaseExists($name) {
@@ -393,16 +396,18 @@ class MSSQLDatabase extends Database {
 		}
 	}
 	
-	/*
-	 * This is a private MSSQL-only function which returns specific details about a column's constraints (if any)
+	/**
+	 * This is a private MSSQL-only function which returns
+	 * specific details about a column's constraints (if any)
+	 * @param string $tableName Name of table the column exists in
+	 * @param string $columnName Name of column to check for
 	 */
-	private function ColumnConstraints($tableName, $columnName){
-		$constraint=$this->query("SELECT CC.CONSTRAINT_NAME, CAST(CHECK_CLAUSE AS TEXT) AS CHECK_CLAUSE, COLUMN_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$tableName' AND COLUMN_NAME='" . $columnName . "';")->first();
-		
+	private function ColumnConstraints($tableName, $columnName) {
+		$constraint = $this->query("SELECT CC.CONSTRAINT_NAME, CAST(CHECK_CLAUSE AS TEXT) AS CHECK_CLAUSE, COLUMN_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$tableName' AND COLUMN_NAME='" . $columnName . "';")->first();
 		return $constraint;
 	}
 	
-	/*
+	/**
 	 * Get the actual enum fields from the constraint value:
 	 */
 	private function EnumValuesFromConstraint($constraint){
@@ -1096,10 +1101,11 @@ class MSSQLDatabase extends Database {
 	}
 	
 	/**
-	 * The core search engine, used by this class and its subclasses to do fun stuff.
-	 * Searches both SiteTree and File.
+	 * The core search engine configuration.
+	 * @todo There is no result relevancy or ordering as it currently stands.
 	 * 
-	 * @param string $keywords Keywords as a string.
+	 * @param string $keywords Keywords as a space separated string
+	 * @return object DataObjectSet of result pages
 	 */
 	public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
 		if($this->fullTextEnabled) {
