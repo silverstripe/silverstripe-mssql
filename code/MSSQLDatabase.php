@@ -65,12 +65,12 @@ class MSSQLDatabase extends Database {
 		} else {
 			user_error("Neither the mssql_connect() nor the sqlsrv_connect() functions are available.  Please install the PHP native mssql module, or the Microsoft-provided sqlsrv module.", E_USER_ERROR);
 		}
- 		 
+		
 		if($this->mssql) {
 			$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password']);
 		} else {
 			$this->dbConn = sqlsrv_connect($parameters['server'], array(
-				'UID' => $parameters['username'], 
+				'UID' => $parameters['username'],
 				'PWD' => $parameters['password'],
 			));
 		}
@@ -85,6 +85,16 @@ class MSSQLDatabase extends Database {
 			// Configure the connection
 			$this->query('SET QUOTED_IDENTIFIER ON');
 			$this->query('SET TEXTSIZE 2147483647');
+		}
+	}
+	
+	public function __destruct() {
+		if($this->dbConn) {
+			if(function_exists('mssql_close')) {
+				mssql_close($this->dbConn);
+			} elseif(function_exists('sqlsrv_close')) {
+				sqlsrv_close($this->dbConn);
+			}
 		}
 	}
 	
