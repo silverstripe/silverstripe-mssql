@@ -350,8 +350,7 @@ class MSSQLDatabase extends Database {
 		$indexList=$this->IndexList($tableName);
 		
 		if($alteredFields) {
-			foreach($alteredFields as $k => $v) {
-				
+			foreach($alteredFields as $k => $v) {				
 				$val=$this->alterTableAlterColumn($tableName, $k, $v, $indexList);
 				if($val!='')
 					$alterList[] .= $val;
@@ -404,6 +403,21 @@ class MSSQLDatabase extends Database {
 		$constraint = $this->query("SELECT CC.CONSTRAINT_NAME, CAST(CHECK_CLAUSE AS TEXT) AS CHECK_CLAUSE, COLUMN_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$tableName' AND COLUMN_NAME='" . $columnName . "';")->first();
 		return $constraint;
 	}
+
+	/**
+	 * Return the name of the default constraint applied to $tableName.$colName.
+	 * Will return null if no such constraint exists
+	 */
+	private function defaultConstraintName($tableName, $colName) {
+		return $this->query("SELECT s.name --default name
+			FROM sys.sysobjects s
+			join sys.syscolumns c ON s.parent_obj = c.id
+			WHERE s.xtype = 'd'
+			and c.cdefault = s.id
+			and parent_obj= OBJECT_ID('$tableName')
+			and c.name = '$colName'")->value();
+	}
+			
 	
 	/**
 	 * Get the actual enum fields from the constraint value:
@@ -448,37 +462,23 @@ class MSSQLDatabase extends Database {
 		if(isset($indexList[$colName])){
 			$alterCol = "\nDROP INDEX \"$tableName\".ix_{$tableName}_{$colName};";
 		}
-		
+
 		$prefix="ALTER TABLE \"" . $tableName . "\" ";
+
+		// Remove the old default prior to adjusting the column.
+		if($defaultConstraintName = $this->defaultConstraintName($tableName, $colName)) {
+			$alterCol .= ";\n$prefix DROP CONSTRAINT \"$defaultConstraintName\"";
+		}
+		
 		if(isset($matches[1])) {
-			$alterCol .= "\n$prefix ALTER COLUMN \"$colName\" $matches[1]\n";
+			$alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" $matches[1]";
 		
 			// SET null / not null
 			if(!empty($matches[2])) $alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" $matches[1] $matches[2]";
-			
-			// SET default (we drop it first, for reasons of precaution)
-			//TODO: changing default values not implemented yet:
-			if(!empty($matches[3])) {
-				$constraint_name="{$tableName}_{$colName}_default";
-				//$alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" DROP DEFAULT";
-				//$alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" SET $matches[3]";
-				/*$constraint_query="
-					SELECT OBJECT_NAME(OBJECT_ID) AS NameofConstraint,
-					SCHEMA_NAME(schema_id) AS SchemaName,
-					OBJECT_NAME(parent_object_id) AS TableName,
-					type_desc AS ConstraintType
-					FROM sys.objects
-					WHERE type_desc LIKE '%CONSTRAINT' AND OBJECT_NAME(parent_object_id)='{$tableName}' AND type_desc='DEFAULT_CONSTRAINT' AND OBJECT_NAME(OBJECT_ID)='$constraint_name'";
-					
-				$constraint_result=$this->query($constraint_query)->first();
-				
-				if($constraint_result){
-					//$alterCol.= ";\n$prefix DROP DEFAULT";
-					$alterCol .= ";\n$prefix DROP CONSTRAINT $constraint_name";
-				}
-				$alterCol .= ";\n$prefix ADD CONSTRAINT \"$constraint_name\" {$matches[3]} FOR $colName";*/
-			}
-			
+
+			// Add a default back
+			if(!empty($matches[3])) $alterCol .= ";\n$prefix ADD $matches[3] FOR \"$colName\"";
+
 			// SET check constraint (The constraint HAS to be dropped)
 			if(!empty($matches[4])) {
 				$constraint=$this->ColumnConstraints($tableName, $colName);
@@ -554,11 +554,52 @@ class MSSQLDatabase extends Database {
 	
 	public function fieldList($table) {
 		//This gets us more information than we need, but I've included it all for the moment....
-		$fields = $this->query("SELECT ordinal_position, column_name, data_type, column_default, is_nullable, character_maximum_length, numeric_precision FROM information_schema.columns WHERE table_name = '$table' ORDER BY ordinal_position;");
+		$fields = $this->query("SELECT ordinal_position, column_name, data_type, column_default, 
+			is_nullable, character_maximum_length, numeric_precision, numeric_scale
+			FROM information_schema.columns WHERE table_name = '$table' 
+			ORDER BY ordinal_position;");
 		
 		$output = array();
 		if($fields) foreach($fields as $field) {
+			// Update the data_type field to be a complete column definition string for use by
+			// Database::requireField()
 			switch($field['data_type']){
+				case 'bigint':
+				case 'numeric':
+				case 'float':
+				case 'bit':
+					if($sizeSuffix = $field['numeric_precision']) {
+							$field['data_type'] .= "($sizeSuffix)";
+					}
+
+					if($field['is_nullable'] == 'YES') {
+						$field['data_type'] .= ' null';
+					} else {
+						$field['data_type'] .= ' not null';
+					}
+					if($field['column_default']) {
+						$default=substr($field['column_default'], 2, -2);
+						$field['data_type'] .= " default $default";
+					}
+					break;
+
+				case 'decimal':
+					if($field['numeric_precision']) {
+						$sizeSuffix = $field['numeric_precision'] . ',' . $field['numeric_scale'];
+							$field['data_type'] .= "($sizeSuffix)";
+					}
+
+					if($field['is_nullable'] == 'YES') {
+						$field['data_type'] .= ' null';
+					} else {
+						$field['data_type'] .= ' not null';
+					}
+					if($field['column_default']) {
+						$default=substr($field['column_default'], 2, -2);
+						$field['data_type'] .= " default $default";
+					}
+					break;
+				
 				case 'varchar':
 					//Check to see if there's a constraint attached to this column:
 					$constraint=$this->ColumnConstraints($table, $field['column_name']);
@@ -566,13 +607,27 @@ class MSSQLDatabase extends Database {
 						$constraints=$this->EnumValuesFromConstraint($constraint['CHECK_CLAUSE']);
 						$default=substr($field['column_default'], 2, -2);
 						$field['data_type']=$this->enum(Array('default'=>$default, 'name'=>$field['column_name'], 'enums'=>$constraints, 'table'=>$table));
+						break;
 					}
-					
-					$output[$field['column_name']]=$field;
-					break;
+
 				default:
-					$output[$field['column_name']] = $field;
+					$sizeSuffix = $field['character_maximum_length'];
+					if($sizeSuffix == '-1') $sizeSuffix = 'max';
+					if($sizeSuffix) {
+							$field['data_type'] .= "($sizeSuffix)";
+					}
+
+					if($field['is_nullable'] == 'YES') {
+						$field['data_type'] .= ' null';
+					} else {
+						$field['data_type'] .= ' not null';
+					}
+					if($field['column_default']) {
+						$default=substr($field['column_default'], 2, -2);
+						$field['data_type'] .= " default '$default'";
+					}
 			}
+			$output[$field['column_name']]=$field;
 			
 		}
 		
@@ -780,10 +835,14 @@ class MSSQLDatabase extends Database {
 		//Annoyingly, we need to do a good ol' fashioned switch here:
 		($values['default']) ? $default='1' : $default='0';
 		
-		if($asDbValue)
-			return 'bit';
-		else
+		if($asDbValue) {
+			return array(
+				'data_type'=>'bit', 
+				'default' => $default
+			);
+		} else {
 			return 'bit not null default ' . $default;
+		}
 	}
 	
 	/**
@@ -793,10 +852,13 @@ class MSSQLDatabase extends Database {
 	 * @return string
 	 */
 	public function date($values, $asDbValue=false){
-		if($asDbValue)
-			return 'datetime';
-		else
+		if($asDbValue) {
+			return array(
+				'data_type' => 'decimal',
+			);
+		} else {
 			return 'datetime null';
+		}
 	}
 	
 	/**
@@ -824,13 +886,24 @@ class MSSQLDatabase extends Database {
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
-	public function enum($values){
-		//Enums are a bit different. We'll be creating a varchar(255) with a constraint of all the usual enum options.
-		//NOTE: In this one instance, we are including the table name in the values array
-		
-		return "varchar(255) not null default '" . $values['default'] . "' check(\"" . $values['name'] . "\" in ('" . implode('\', \'', $values['enums']) . "'))";
-		//return "varchar(255) not null check(\"" . $values['name'] . "\" in ('" . implode('\', \'', $values['enums']) . "')); add constraint \"" . $values['table'] . '_' . $values['name'] . "_default\" default '" . $values['default'] . "' for \"" . $values['name'] . "\"";
-		
+	public function enum($values, $asDbValue=false){
+		// Enums are a bit different. We'll be creating a varchar(255) with a constraint of all the
+		// usual enum options.
+		// NOTE: In this one instance, we are including the table name in the values array
+
+		$maxLength = max(array_map('strlen', $values['enums']));
+
+		if($asDbValue) {
+			return array(
+				'data_type'=>'varchar', 
+				'default' => $values['default'],
+				'character_maximum_length'=>$maxLength,
+			);
+		} else {
+			return "varchar($maxLength) not null default '" . $values['default'] 
+				. "' check(\"" . $values['name'] . "\" in ('" . implode("','", $values['enums']) 
+				. "'))";
+		}
 	}
 	
 	/**
@@ -880,10 +953,14 @@ class MSSQLDatabase extends Database {
 	 * @return string
 	 */
 	public function text($values, $asDbValue=false){
-		if($asDbValue)
-			return Array('data_type'=>'varchar(max)');
-		else
+		if($asDbValue) {
+			return array(
+				'data_type'=>'varchar',
+				'character_maximum_length' => -1,
+			);
+		} else {
 			return 'varchar(max) null';
+		}
 	}
 	
 	/**
@@ -904,7 +981,7 @@ class MSSQLDatabase extends Database {
 	 */
 	public function varchar($values, $asDbValue=false){
 		if($asDbValue)
-			return Array('data_type'=>'varchar', 'character_maximum_length'=>'255');
+			return Array('data_type'=>'varchar', 'character_maximum_length'=>$values['precision']);
 		else
 			return 'varchar(' . $values['precision'] . ') null';
 	}
@@ -950,11 +1027,11 @@ class MSSQLDatabase extends Database {
 	function IdColumn($asDbValue=false, $hasAutoIncPK=true){
 		
 		if($asDbValue)
-			return 'bigint';
+			return 'bigint(19) not null';
 		else {
 			if($hasAutoIncPK)
-				return 'bigint identity(1,1)';
-			else return 'bigint';
+				return 'bigint(19) identity(1,1)';
+			else return 'bigint(19) not null';
 		}
 	}
 	
