@@ -95,12 +95,10 @@ class MSSQLDatabase extends Database {
 	}
 	
 	public function __destruct() {
-		if(is_resource($this->dbConn)) {
-			if(function_exists('mssql_close')) {
-				mssql_close($this->dbConn);
-			} elseif(function_exists('sqlsrv_close')) {
-				sqlsrv_close($this->dbConn);
-			}
+		if($this->mssql) {
+			mssql_close($this->dbConn);
+		} else {
+			sqlsrv_close($this->dbConn);
 		}
 	}
 	
@@ -1246,7 +1244,6 @@ class MSSQLQuery extends Query {
 	 * @param handle the internal mssql handle that is points to the resultset.
 	 */
 	public function __construct(MSSQLDatabase $database, $handle, $mssql) {
-		
 		$this->database = $database;
 		$this->handle = $handle;
 		$this->mssql = $mssql;
@@ -1255,7 +1252,6 @@ class MSSQLQuery extends Query {
 	}
 	
 	public function __destroy() {
-		Debug::message("Destroying query");
 		if($this->mssql) {
 			mssql_free_result($this->handle);
 		} else {
@@ -1263,9 +1259,8 @@ class MSSQLQuery extends Query {
 		}
 	}
 	
-	/*
+	/**
 	 * Please see the comments below for numRecords
-	 * 
 	 */
 	public function seek($row) {
 		if($this->mssql) {
@@ -1286,7 +1281,6 @@ class MSSQLQuery extends Query {
 	 * rowset, cache it, and then do the count on that. This is probably resource intensive.
 	 * 
 	 * For this function, and seek() (above), we will be returning false.
-	 * 
 	 */
 	public function numRecords() {
 		if($this->mssql) {
