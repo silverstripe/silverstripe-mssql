@@ -96,12 +96,12 @@ class MSSQLDatabase extends Database {
 	
 	public function __destruct() {
 		if(is_resource($this->dbConn)) {
-			if($this->mssql) {
-				mssql_close($this->dbConn);
-			} else {
-				sqlsrv_close($this->dbConn);
-			}
+		if($this->mssql) {
+			mssql_close($this->dbConn);
+		} else {
+			sqlsrv_close($this->dbConn);
 		}
+	}
 	}
 	
 	/**
@@ -461,8 +461,11 @@ class MSSQLDatabase extends Database {
 		
 		//drop the index if it exists:
 		$alterCol='';
-		if(isset($indexList[$colName])){
-			$alterCol = "\nDROP INDEX \"$tableName\".ix_{$tableName}_{$colName};";
+		if(isset($indexList[$colName]) && $colName!='ID'){
+			//$alterCol = "\nDROP INDEX \"$tableName\".ix_{$tableName}_{$colName};";
+			//The indexname value should hold the name of the index, so we don't have to construct it outselves.
+			//This also means we can use internal indexes if they happen to appear.
+			$alterCol = "\nDROP INDEX \"$tableName\"." . $indexList[$colName]['indexname'] . ';';
 		}
 
 		$prefix="ALTER TABLE \"" . $tableName . "\" ";
@@ -473,24 +476,27 @@ class MSSQLDatabase extends Database {
 		}
 		
 		if(isset($matches[1])) {
-			$alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" $matches[1]";
-		
-			// SET null / not null
-			if(!empty($matches[2])) $alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" $matches[1] $matches[2]";
-
-			// Add a default back
-			if(!empty($matches[3])) $alterCol .= ";\n$prefix ADD $matches[3] FOR \"$colName\"";
-
-			// SET check constraint (The constraint HAS to be dropped)
-			if(!empty($matches[4])) {
-				$constraint=$this->ColumnConstraints($tableName, $colName);
-				if($constraint)
-					$alterCol .= ";\n$prefix DROP CONSTRAINT {$constraint['CONSTRAINT_NAME']}";
+			//We will prevent any changes being made to the ID column.  Primary key indexes will have a fit if we do anything here.
+			if($colName!='ID'){
+				$alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" $matches[1]";
+			
+				// SET null / not null
+				if(!empty($matches[2])) $alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" $matches[1] $matches[2]";
+	
+				// Add a default back
+				if(!empty($matches[3])) $alterCol .= ";\n$prefix ADD $matches[3] FOR \"$colName\"";
+	
+				// SET check constraint (The constraint HAS to be dropped)
+				if(!empty($matches[4])) {
+					$constraint=$this->ColumnConstraints($tableName, $colName);
+					if($constraint)
+						$alterCol .= ";\n$prefix DROP CONSTRAINT {$constraint['CONSTRAINT_NAME']}";
+						
+					//NOTE: 'with nocheck' seems to solve a few problems I've been having for modifying existing tables.
+					$alterCol .= ";\n$prefix WITH NOCHECK ADD CONSTRAINT \"{$tableName}_{$colName}_check\" $matches[4]";
 					
-				//NOTE: 'with nocheck' seems to solve a few problems I've been having for modifying existing tables.
-				$alterCol .= ";\n$prefix WITH NOCHECK ADD CONSTRAINT \"{$tableName}_{$colName}_check\" $matches[4]";
-				
-				
+					
+				}
 			}
 		}
 		return isset($alterCol) ? $alterCol : '';
@@ -571,7 +577,7 @@ class MSSQLDatabase extends Database {
 				case 'float':
 				case 'bit':
 					if($field['data_type'] != 'bigint' && $sizeSuffix = $field['numeric_precision']) {
-						$field['data_type'] .= "($sizeSuffix)";
+							$field['data_type'] .= "($sizeSuffix)";
 					}
 
 					if($field['is_nullable'] == 'YES') {
@@ -725,8 +731,8 @@ class MSSQLDatabase extends Database {
 	    if(!$indexType) {
 	    	$indexType = "index";
 	    }
-    
-	    $this->query("DROP INDEX $indexName ON $tableName;");
+    	
+    	$this->query("DROP INDEX $indexName ON $tableName;");
 		$this->query("ALTER TABLE \"$tableName\" ADD $indexType \"$indexName\" $indexFields");
 	}
 	
