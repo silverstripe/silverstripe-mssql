@@ -568,8 +568,8 @@ class MSSQLDatabase extends Database {
 				case 'numeric':
 				case 'float':
 				case 'bit':
-					if($sizeSuffix = $field['numeric_precision']) {
-							$field['data_type'] .= "($sizeSuffix)";
+					if($field['data_type'] != 'bigint' && $sizeSuffix = $field['numeric_precision']) {
+						$field['data_type'] .= "($sizeSuffix)";
 					}
 
 					if($field['is_nullable'] == 'YES') {
@@ -1027,11 +1027,11 @@ class MSSQLDatabase extends Database {
 	function IdColumn($asDbValue=false, $hasAutoIncPK=true){
 		
 		if($asDbValue)
-			return 'bigint(19) not null';
+			return 'bigint not null';
 		else {
 			if($hasAutoIncPK)
-				return 'bigint(19) identity(1,1)';
-			else return 'bigint(19) not null';
+				return 'bigint identity(1,1)';
+			else return 'bigint not null';
 		}
 	}
 	
