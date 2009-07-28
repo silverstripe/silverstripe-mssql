@@ -95,10 +95,12 @@ class MSSQLDatabase extends Database {
 	}
 	
 	public function __destruct() {
-		if($this->mssql) {
-			mssql_close($this->dbConn);
-		} else {
-			sqlsrv_close($this->dbConn);
+		if(is_resource($this->dbConn)) {
+			if($this->mssql) {
+				mssql_close($this->dbConn);
+			} else {
+				sqlsrv_close($this->dbConn);
+			}
 		}
 	}
 	
