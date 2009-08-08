@@ -62,8 +62,6 @@ class MSSQLDatabase extends Database {
 	 *  - database: The database to connect to
 	 */
 	public function __construct($parameters) {
-		parent::__construct();
-		
 		if(function_exists('mssql_connect')) {
 			$this->mssql = true;
 		} else if(function_exists('sqlsrv_connect')) {
@@ -1332,8 +1330,6 @@ class MSSQLQuery extends Query {
 		$this->database = $database;
 		$this->handle = $handle;
 		$this->mssql = $mssql;
-		
-		parent::__construct();
 	}
 	
 	public function __destroy() {
