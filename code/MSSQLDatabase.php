@@ -1336,7 +1336,7 @@ class MSSQLQuery extends Query {
 		if($this->mssql) {
 			mssql_free_result($this->handle);
 		} else {
-			sqlsrv_free_stmt($this->handle);
+			if($this->handle) sqlsrv_free_stmt($this->handle);
 		}
 	}
 	
@@ -1420,7 +1420,7 @@ class MSSQLQuery extends Query {
 			if (isset($this->cachedRecords) && count($this->cachedRecords) && (!isset($this->cachingRows) || !$this->cachingRows)) {
 				return array_shift($this->cachedRecords);
 			}
-			if($data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_NUMERIC)) {
+			if($this->handle && $data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_NUMERIC)) {
 				$output = array();
 				$fields = sqlsrv_field_metadata($this->handle);
 				foreach($fields as $columnIdx => $field) {
@@ -1435,6 +1435,12 @@ class MSSQLQuery extends Query {
 				}
 				return $output;
 			} else {
+				// Free the handle if there are no more results - sqlserv crashes if there are too many handles
+				if($this->handle) {
+					sqlsrv_free_stmt($this->handle);
+					$this->handle = false;
+				}
+				
 				return false;
 			}
 			
