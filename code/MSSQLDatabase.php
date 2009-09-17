@@ -1082,6 +1082,13 @@ class MSSQLDatabase extends Database {
 	}
 	
 	/**
+	 * Returns the database-specific version of the random() function
+	 */
+	function random(){
+		return 'RAND()';
+	}
+	
+	/**
 	 * Convert a SQLQuery object into a SQL statement.
 	 */
 	public function sqlQueryToString(SQLQuery $sqlQuery) {
