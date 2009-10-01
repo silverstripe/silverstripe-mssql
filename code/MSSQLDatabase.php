@@ -53,6 +53,8 @@ class MSSQLDatabase extends Database {
 	 */
 	public static $noiseWords = array("about", "1", "after", "2", "all", "also", "3", "an", "4", "and", "5", "another", "6", "any", "7", "are", "8", "as", "9", "at", "0", "be", "$", "because", "been", "before", "being", "between", "both", "but", "by", "came", "can", "come", "could", "did", "do", "does", "each", "else", "for", "from", "get", "got", "has", "had", "he", "have", "her", "here", "him", "himself", "his", "how", "if", "in", "into", "is", "it", "its", "just", "like", "make", "many", "me", "might", "more", "most", "much", "must", "my", "never", "no", "now", "of", "on", "only", "or", "other", "our", "out", "over", "re", "said", "same", "see", "should", "since", "so", "some", "still", "such", "take", "than", "that", "the", "their", "them", "then", "there", "these", "they", "this", "those", "through", "to", "too", "under", "up", "use", "very", "want", "was", "way", "we", "well", "were", "what", "when", "where", "which", "while", "who", "will", "with", "would", "you", "your", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z");
 	
+	private $supportsTransactions=false;
+	
 	/**
 	 * Connect to a MS SQL database.
 	 * @param array $parameters An map of parameters, which should include:
@@ -1301,6 +1303,43 @@ class MSSQLDatabase extends Database {
 			}
 		}
 		return join(' ', $goodWords);
+	}
+	
+	/*
+	 * Does this database support transactions?
+	 */
+	public function supportsTransactions(){
+		return $this->supportsTransactions;
+	}
+	/*
+	 * Start a prepared transaction
+	 * See http://developer.postgresql.org/pgdocs/postgres/sql-set-transaction.html for details on transaction isolation options
+	 */
+	public function startTransaction($transaction_mode=false, $session_characteristics=false){
+		//Transactions not set up for MSSQL yet
+	}
+	
+	/*
+	 * Create a savepoint that you can jump back to if you encounter problems
+	 */
+	public function transactionSavepoint($savepoint){
+		//Transactions not set up for MSSQL yet
+	}
+	
+	/*
+	 * Rollback or revert to a savepoint if your queries encounter problems
+	 * If you encounter a problem at any point during a transaction, you may
+	 * need to rollback that particular query, or return to a savepoint
+	 */
+	public function transactionRollback($savepoint=false){
+		//Transactions not set up for MSSQL yet
+	}
+	
+	/*
+	 * Commit everything inside this transaction so far
+	 */
+	public function endTransaction(){
+		//Transactions not set up for MSSQL yet
 	}
 }
 
