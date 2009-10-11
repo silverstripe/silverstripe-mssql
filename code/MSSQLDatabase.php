@@ -1311,6 +1311,22 @@ class MSSQLDatabase extends Database {
 	public function supportsTransactions(){
 		return $this->supportsTransactions;
 	}
+	
+	/*
+	 * This is a quick lookup to discover if the database supports particular extensions
+	 * Currently, MSSQL supports no extensions
+	 */
+	public function supportsExtensions($extensions=Array('partitions', 'tablespaces', 'clustering')){
+		if(isset($extensions['partitions']))
+			return false;
+		elseif(isset($extensions['tablespaces']))
+			return false;
+		elseif(isset($extensions['clustering']))
+			return false;
+		else
+			return false;
+	}
+	
 	/*
 	 * Start a prepared transaction
 	 * See http://developer.postgresql.org/pgdocs/postgres/sql-set-transaction.html for details on transaction isolation options
