@@ -312,7 +312,7 @@ class MSSQLDatabase extends Database {
 	 *   - 'temporary' - If true, then a temporary table will be created
 	 * @return The table name generated.  This may be different from the table name, for example with temporary tables.
 	 */
-	public function createTable($tableName, $fields = null, $indexes = null, $options = null) {
+	public function createTable($tableName, $fields = null, $indexes = null, $options = null, $advancedOptions = null) {
 		$fieldSchemas = $indexSchemas = "";
 		if($fields) foreach($fields as $k => $v) $fieldSchemas .= "\"$k\" $v,\n";
 		
@@ -343,7 +343,7 @@ class MSSQLDatabase extends Database {
 	 * @param $alteredFields Updated fields, a map of field name => field schema
 	 * @param $alteredIndexes Updated indexes, a map of index name => index type
 	 */
-	public function alterTable($tableName, $newFields = null, $newIndexes = null, $alteredFields = null, $alteredIndexes = null) {
+	public function alterTable($tableName, $newFields = null, $newIndexes = null, $alteredFields = null, $alteredIndexes = null, $alteredOptions=null, $advancedOptions=null) {
 		$fieldSchemas = $indexSchemas = "";
 		
 		$alterList = array();
