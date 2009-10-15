@@ -73,7 +73,7 @@ class MSSQLDatabase extends Database {
 		}
 		
 		if($this->mssql) {
-			$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password']);
+			$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password'], true);
 		} else {
 			$this->dbConn = sqlsrv_connect($parameters['server'], array(
 				'UID' => $parameters['username'],
