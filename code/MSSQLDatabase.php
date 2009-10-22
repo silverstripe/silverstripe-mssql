@@ -357,53 +357,24 @@ class MSSQLDatabase extends Database {
 	 */
 	public function alterTable($tableName, $newFields = null, $newIndexes = null, $alteredFields = null, $alteredIndexes = null, $alteredOptions=null, $advancedOptions=null) {
 		$fieldSchemas = $indexSchemas = "";
-		
 		$alterList = array();
+		$indexList = $this->indexList($tableName);
+		
 		if($newFields) foreach($newFields as $k => $v) $alterList[] .= "ALTER TABLE \"$tableName\" ADD \"$k\" $v";
-		
-		$indexList=$this->IndexList($tableName);
-		
-		if($alteredFields) {
-			foreach($alteredFields as $k => $v) {				
-				$val=$this->alterTableAlterColumn($tableName, $k, $v, $indexList);
-				if($val!='')
-					$alterList[] .= $val;
-			}
+		if($alteredFields) foreach($alteredFields as $k => $v) {
+			$val = $this->alterTableAlterColumn($tableName, $k, $v, $indexList);
+			if($val != '') $alterList[] .= $val;
 		}
 		
-		//DB ABSTRACTION: we need to change the constraints to be a separate 'add' command,
-		$alterIndexList=Array();
-		if($alteredIndexes) foreach($alteredIndexes as $v) {
-			//TODO: I don't think that these drop index commands will work:
-			if($v['type']!='fulltext'){
-				if(is_array($v))
-					$alterIndexList[] = 'DROP INDEX ix_' . strtolower($tableName) . '_' . strtolower($v['value']) . ' ON ' . $tableName . ';';
-				else
-					$alterIndexList[] = 'DROP INDEX ix_' . strtolower($tableName) . '_' . strtolower(trim($v, '()')) . ' ON ' . $tableName . ';';
-							
-				if(is_array($v))
-					$k=$v['value'];
-				else $k=trim($v, '()');
-				
-				$alterIndexList[] = $this->getIndexSqlDefinition($tableName, $k, $v);
-			}
- 		}
- 		
- 		//Add the new indexes:
- 		if($newIndexes) foreach($newIndexes as $k=>$v){
- 			$alterIndexList[] = $this->getIndexSqlDefinition($tableName, $k, $v);
- 		}
+		if($alteredIndexes) foreach($alteredIndexes as $k => $v) $alterList[] .= $this->getIndexSqlDefinition($tableName, $k, $v);
+		if($newIndexes) foreach($newIndexes as $k =>$v) $alterList[] .= $this->getIndexSqlDefinition($tableName, $k, $v);
 
- 		if($alterList) {
-			foreach($alterList as $this_alteration){
-				if($this_alteration!=''){
-					$this->query($this_alteration);
+		if($alterList) {
+			foreach($alterList as $alteration) {
+				if($alteration != '') {
+					$this->query($alteration);
 				}
 			}
-		}
-		
-		foreach($alterIndexList as $alteration) {
-			if($alteration!='') $this->query($alteration);
 		}
 	}
 	
@@ -664,7 +635,7 @@ class MSSQLDatabase extends Database {
 		$this->query($this->getIndexSqlDefinition($tableName, $indexName, $indexSpec));
 	}
 	
-	/*
+	/**
 	 * This takes the index spec which has been provided by a class (ie static $indexes = blah blah)
 	 * and turns it into a proper string.
 	 * Some indexes may be arrays, such as fulltext and unique indexes, and this allows database-specific
@@ -687,16 +658,17 @@ class MSSQLDatabase extends Database {
 	}
 	
 	protected function getIndexSqlDefinition($tableName, $indexName, $indexSpec) {
-	    
-		if(!is_array($indexSpec)){
+		if(!is_array($indexSpec)) {
 			$indexSpec=trim($indexSpec, '()');
 			$bits=explode(',', $indexSpec);
 			$indexes="\"" . implode("\",\"", $bits) . "\"";
+			$index = 'ix_' . $tableName . '_' . $indexName;
 			
-			return 'create index ix_' . $tableName . '_' . $indexName . " ON \"" . $tableName . "\" (" . $indexes . ");";
+			$drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index') DROP INDEX $index ON \"" . $tableName . "\";";
+			return "$drop CREATE INDEX $index ON \"" . $tableName . "\" (" . $indexes . ");";
 		} else {
 			//create a type-specific index
-			if($indexSpec['type']=='fulltext'){
+			if($indexSpec['type'] == 'fulltext') {
 				if($this->fullTextEnabled) {
 					//Enable full text search.
 					$this->createFullTextCatalog();
@@ -705,21 +677,17 @@ class MSSQLDatabase extends Database {
 				
 					//First, we need to see if a full text search already exists:
 					$result=$this->query("SELECT object_id FROM sys.fulltext_indexes WHERE object_id=object_id('$tableName');")->first();
-				
-					$drop='';
-					if($result)
-						$drop="DROP FULLTEXT INDEX ON \"" . $tableName . "\";";
-				
-					return $drop . "CREATE FULLTEXT INDEX ON \"$tableName\"	({$indexSpec['value']})	" .
-						"KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
+					
+					$drop = '';
+					if($result) $drop = "DROP FULLTEXT INDEX ON \"" . $tableName . "\";";
+					return $drop . "CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
 				}
-			
 			}
-									
-			if($indexSpec['type']=='unique')
-				return 'create unique index ix_' . $tableName . '_' . $indexName . " ON \"" . $tableName . "\" (\"" . $indexSpec['value'] . "\");";
+			
+			if($indexSpec['type'] == 'unique') {
+				return 'CREATE UNIQUE INDEX ix_' . $tableName . '_' . $indexName . " ON \"" . $tableName . "\" (\"" . $indexSpec['value'] . "\");";
+			}
 		}
-		
 	}
 	
 	function getDbSqlDefinition($tableName, $indexName, $indexSpec){
