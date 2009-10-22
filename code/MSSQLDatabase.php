@@ -3,7 +3,7 @@
  * Microsoft SQL Server 2008 connector class.
  * 
  * Connecting using Windows:
- * If you've got your website running on Windows, it's highly recommend you
+ * If you've got your website running on Windows, it's highly recommended you
  * use "sqlsrv", a SQL Server driver for PHP by Microsoft.
  * @see http://www.microsoft.com/downloads/details.aspx?displaylang=en&FamilyID=ccdf728b-1ea0-48a8-a84a-5052214caad9
  * 
