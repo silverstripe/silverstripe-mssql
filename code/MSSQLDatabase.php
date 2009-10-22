@@ -1,9 +1,20 @@
 <?php
 /**
- * Microsoft SQL Server connector class.
+ * Microsoft SQL Server 2008 connector class.
  * 
- * @package sapphire
- * @subpackage model
+ * Connecting using Windows:
+ * If you've got your website running on Windows, it's highly recommend you
+ * use "sqlsrv", a SQL Server driver for PHP by Microsoft.
+ * @see http://www.microsoft.com/downloads/details.aspx?displaylang=en&FamilyID=ccdf728b-1ea0-48a8-a84a-5052214caad9
+ * 
+ * Connecting using a UNIX platform:
+ * On other platforms such as Mac OS X and Linux, you'll have to use FreeTDS.
+ * PHP also needs to be built with mssql enabled. This is easy if you use XAMPP,
+ * as it's already included.
+ * If using MacPorts, you can use "port install php5-mssql" if you've already got
+ * the php5 port installed.
+ * 
+ * @package mssql
  */
 class MSSQLDatabase extends Database {
 	
@@ -26,7 +37,8 @@ class MSSQLDatabase extends Database {
 	private $database;
 	
 	/**
-	 * Does this database have full-text index supprt
+	 * Does this database have full-text support?
+	 * @var boolean
 	 */
 	protected $fullTextEnabled = true;
 	
@@ -96,12 +108,12 @@ class MSSQLDatabase extends Database {
 	
 	public function __destruct() {
 		if(is_resource($this->dbConn)) {
-		if($this->mssql) {
-			mssql_close($this->dbConn);
-		} else {
-			sqlsrv_close($this->dbConn);
+			if($this->mssql) {
+				mssql_close($this->dbConn);
+			} else {
+				sqlsrv_close($this->dbConn);
+			}
 		}
-	}
 	}
 	
 	/**
