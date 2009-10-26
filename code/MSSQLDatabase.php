@@ -553,7 +553,7 @@ class MSSQLDatabase extends SS_Database {
 		$output = array();
 		if($fields) foreach($fields as $field) {
 			// Update the data_type field to be a complete column definition string for use by
-			// Database::requireField()
+			// SS_Database::requireField()
 			switch($field['data_type']){
 				case 'bigint':
 				case 'numeric':
