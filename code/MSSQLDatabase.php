@@ -629,7 +629,7 @@ class MSSQLDatabase extends SS_Database {
 	 * Create an index on a table.
 	 * @param string $tableName The name of the table.
 	 * @param string $indexName The name of the index.
-	 * @param string $indexSpec The specification of the index, see Database::requireIndex() for more details.
+	 * @param string $indexSpec The specification of the index, see SS_Database::requireIndex() for more details.
 	 */
 	public function createIndex($tableName, $indexName, $indexSpec) {
 		$this->query($this->getIndexSqlDefinition($tableName, $indexName, $indexSpec));
@@ -698,7 +698,7 @@ class MSSQLDatabase extends SS_Database {
 	 * Alter an index on a table.
 	 * @param string $tableName The name of the table.
 	 * @param string $indexName The name of the index.
-	 * @param string $indexSpec The specification of the index, see Database::requireIndex() for more details.
+	 * @param string $indexSpec The specification of the index, see SS_Database::requireIndex() for more details.
 	 */
 	public function alterIndex($tableName, $indexName, $indexSpec) {
 	    $indexSpec = trim($indexSpec);
@@ -1381,10 +1381,7 @@ class MSSQLQuery extends SS_Query {
 			if($this->handle) sqlsrv_free_stmt($this->handle);
 		}
 	}
-	
-	/**
-	 * Please see the comments below for numRecords
-	 */
+
 	public function seek($row) {
 		if($this->mssql) {
 			return mssql_data_seek($this->handle, $row);
@@ -1393,22 +1390,29 @@ class MSSQLQuery extends SS_Query {
 		}
 	}
 	
-	/*
+	/**
 	 * If we're running the sqlsrv set of functions, then the dataobject set is a forward-only cursor
 	 * Therefore, we do not have access to the number of rows that this result contains
-	 * This is (usually) called from Database::rewind(), which in turn seems to be called when a foreach...
+	 * This is (usually) called from SS_Query::rewind(), which in turn seems to be called when a foreach...
 	 * is started on a recordset
 	 *
-	 * If you are using SQLSRV, this functon will just return a true or false based on whether you got
+	 * If you are using sqlsrv 1.0, this will just return a true or false based on whether you got
 	 * /ANY/ rows. UNLESS you set $this->forceNumRows to true, in which case, it will loop over the whole
 	 * rowset, cache it, and then do the count on that. This is probably resource intensive.
 	 * 
-	 * For this function, and seek() (above), we will be returning false.
+	 * If you are using sqlsrv 1.1 or greater, then disregard the above, because sqlsrv_num_rows() was
+	 * added in version 1.1 of the driver.
+	 * 
+	 * @return boolean|int
 	 */
 	public function numRecords() {
 		if($this->mssql) {
 			return mssql_num_rows($this->handle);
 		} else {
+			if(function_exists('sqlsrv_num_rows')) {
+				return sqlsrv_num_rows($this->handle);
+			}
+			
 			// Setting forceNumRows to true will cache all records, but will
 			// be able to give a reliable number of results found.
 			if (isset($this->forceNumRows) && $this->forceNumRows) {
