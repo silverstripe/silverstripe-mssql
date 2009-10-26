@@ -927,7 +927,7 @@ class MSSQLDatabase extends SS_Database {
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
-	public function ssdatetime($values, $asDbValue=false){
+	public function ss_datetime($values, $asDbValue=false){
 		if($asDbValue)
 			return Array('data_type'=>'datetime');
 		else
