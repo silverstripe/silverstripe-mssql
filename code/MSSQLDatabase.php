@@ -16,7 +16,7 @@
  * 
  * @package mssql
  */
-class MSSQLDatabase extends Database {
+class MSSQLDatabase extends SS_Database {
 	
 	/**
 	 * Connection to the DBMS.
@@ -1344,7 +1344,7 @@ class MSSQLDatabase extends Database {
  * @package sapphire
  * @subpackage model
  */
-class MSSQLQuery extends Query {
+class MSSQLQuery extends SS_Query {
 	/**
 	 * The MSSQLDatabase object that created this result set.
 	 * @var MSSQLDatabase
