@@ -1200,7 +1200,6 @@ class MSSQLDatabase extends SS_Database {
 			
 			//Get a list of all the tables and columns we'll be searching on:
 			$result=DB::query('EXEC sp_help_fulltext_columns');
-			if (!$result->numRecords()) throw Exception('there are no full text columns to search');
 			$tables= array();
 			
 			foreach($result as $row){
