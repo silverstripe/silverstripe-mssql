@@ -1178,67 +1178,69 @@ class MSSQLDatabase extends SS_Database {
 	 * @return object DataObjectSet of result pages
 	 */
 	public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
-		if($this->fullTextEnabled) {
-			$keywords = Convert::raw2sql(trim($keywords));
-			$htmlEntityKeywords = htmlentities($keywords);
-			
-			$keywordList = explode(' ', $keywords);
-			if($keywordList) {
-				foreach($keywordList as $index => $keyword) {
-					$keywordList[$index] = "\"{$keyword}\"";
-				}
-				$keywords = implode(' AND ', $keywordList);
+		$searchResults = new DataObjectSet();
+		if(!$this->fullTextEnabled) {
+			return $searchResults;
+		}
+		
+		$keywords = Convert::raw2sql(trim($keywords));
+		$htmlEntityKeywords = htmlentities($keywords);
+		
+		$keywordList = explode(' ', $keywords);
+		if($keywordList) {
+			foreach($keywordList as $index => $keyword) {
+				$keywordList[$index] = "\"{$keyword}\"";
 			}
-			
-			$htmlEntityKeywordList = explode(' ', $htmlEntityKeywords);
-			if($htmlEntityKeywordList) {
-				foreach($htmlEntityKeywordList as $index => $keyword) {
-					$htmlEntityKeywordList[$index] = "\"{$keyword}\"";
-				}
-				$htmlEntityKeywords = implode(' AND ', $htmlEntityKeywordList);
+			$keywords = implode(' AND ', $keywordList);
+		}
+		
+		$htmlEntityKeywordList = explode(' ', $htmlEntityKeywords);
+		if($htmlEntityKeywordList) {
+			foreach($htmlEntityKeywordList as $index => $keyword) {
+				$htmlEntityKeywordList[$index] = "\"{$keyword}\"";
 			}
-			
-			//Get a list of all the tables and columns we'll be searching on:
-			$result=DB::query('EXEC sp_help_fulltext_columns');
-			$tables= array();
-			
-			foreach($result as $row){
-				if(substr($row['TABLE_NAME'], -5)!='_Live' && substr($row['TABLE_NAME'], -9)!='_versions') {
-					$thisSql = "SELECT ID, '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE (".
-							"(CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", '$keywords') OR CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", '$htmlEntityKeywords'))";
-					if(strpos($row['TABLE_NAME'], 'SiteTree') === 0) {
-						$thisSql .= " AND ShowInSearch != 0)";//" OR (Title LIKE '%$keywords%' OR Title LIKE '%$htmlEntityKeywords%')";
-					} else {
-						$thisSql .= ')';
-					}
-					
-					$tables[] = $thisSql;
+			$htmlEntityKeywords = implode(' AND ', $htmlEntityKeywordList);
+		}
+		
+		//Get a list of all the tables and columns we'll be searching on:
+		$result=DB::query('EXEC sp_help_fulltext_columns');
+		$tables= array();
+		
+		foreach($result as $row){
+			if(substr($row['TABLE_NAME'], -5)!='_Live' && substr($row['TABLE_NAME'], -9)!='_versions') {
+				$thisSql = "SELECT ID, '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE (".
+						"(CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", '$keywords') OR CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", '$htmlEntityKeywords'))";
+				if(strpos($row['TABLE_NAME'], 'SiteTree') === 0) {
+					$thisSql .= " AND ShowInSearch != 0)";//" OR (Title LIKE '%$keywords%' OR Title LIKE '%$htmlEntityKeywords%')";
+				} else {
+					$thisSql .= ')';
 				}
 				
-			}
-
-			$totalCount = 0;
-			$this->forceNumRows = true;
-			foreach($tables as $q) {
-				$qR = DB::query($q);
-				$totalCount += $qR->numRecords();
-			}
-			$this->forceNumRows = false;
-			
-			//We'll do a union query on all of these tables... it's easier!
-			$query=implode(' UNION ', $tables);
-			
-			$result=DB::query($query);
-			$searchResults=new DataObjectSet();
-			
-			foreach($result as $row){
-				$row_result=DataObject::get_by_id($row['Source'], $row['ID']);
-				$searchResults->push($row_result);
+				$tables[] = $thisSql;
 			}
 			
-			$searchResults->setPageLimits($start, $pageLength, $totalCount);
 		}
-
+		
+		$totalCount = 0;
+		$this->forceNumRows = true;
+		foreach($tables as $q) {
+			$qR = DB::query($q);
+			$totalCount += $qR->numRecords();
+		}
+		$this->forceNumRows = false;
+		
+		//We'll do a union query on all of these tables... it's easier!
+		$query=implode(' UNION ', $tables);
+		
+		$result=DB::query($query);
+		
+		foreach($result as $row){
+			$row_result=DataObject::get_by_id($row['Source'], $row['ID']);
+			$searchResults->push($row_result);
+		}
+		
+		$searchResults->setPageLimits($start, $pageLength, $totalCount);
+		
 		return $searchResults;
 	}
 	
