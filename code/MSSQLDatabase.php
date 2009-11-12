@@ -87,10 +87,16 @@ class MSSQLDatabase extends SS_Database {
 		if($this->mssql) {
 			$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password'], true);
 		} else {
-			$this->dbConn = sqlsrv_connect($parameters['server'], array(
-				'UID' => $parameters['username'],
-				'PWD' => $parameters['password'],
-			));
+			// Windows authentication doesn't require a username and password
+			if(defined('MSSQL_USE_WINDOWS_AUTHENTICATION') && MSSQL_USE_WINDOWS_AUTHENTICATION == true) {
+				$connectionInfo = array();
+			} else {
+				$connectionInfo = array(
+					'UID' => $parameters['username'],
+					'PWD' => $parameters['password'],
+				);
+			}
+			$this->dbConn = sqlsrv_connect($parameters['server'], $connectionInfo);
 		}
 
 		if(!$this->dbConn) {
