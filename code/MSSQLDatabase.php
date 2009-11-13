@@ -1454,6 +1454,9 @@ class MSSQLQuery extends SS_Query {
 				
 				foreach($data as $columnIdx => $value) {
 					$columnName = mssql_field_name($this->handle, $columnIdx);
+					// There are many places in the framework that expect the ID to be a string, not a double
+					// Do not set this to an integer, or it will cause failures in many tests that expect a string
+					if($columnName == 'ID') $value = (string) $value;
 					// $value || !$ouput[$columnName] means that the *last* occurring value is shown
 					// !$ouput[$columnName] means that the *first* occurring value is shown
 					if(isset($value) || !isset($output[$columnName])) {
