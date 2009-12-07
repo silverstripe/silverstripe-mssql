@@ -440,7 +440,6 @@ class MSSQLDatabase extends SS_Database {
 		// First, we split the column specifications into parts
 		// TODO: this returns an empty array for the following string: int(11) not null auto_increment
 		//		 on second thoughts, why is an auto_increment field being passed through?
-		
 		$pattern = '/^([\w()]+)\s?((?:not\s)?null)?\s?(default\s[\w\']+)?\s?(check\s?[\w()\'",\s]+)?$/i';
 		$matches=Array();
 		preg_match($pattern, $colSpec, $matches);
@@ -455,6 +454,11 @@ class MSSQLDatabase extends SS_Database {
 			//The indexname value should hold the name of the index, so we don't have to construct it outselves.
 			//This also means we can use internal indexes if they happen to appear.
 			$alterCol = "\nDROP INDEX \"$tableName\"." . $indexList[$colName]['indexname'] . ';';
+		}
+		
+		// fulltext indexes need to be dropped if alterting a table
+		if($this->fulltextIndexExists($tableName)) {
+			$alterCol .= "\nDROP FULLTEXT INDEX ON \"$tableName\";";
 		}
 
 		$prefix="ALTER TABLE \"" . $tableName . "\" ";
@@ -1258,6 +1262,18 @@ class MSSQLDatabase extends SS_Database {
 	 */
 	function allowPrimaryKeyEditing($table, $allow = true) {
 		$this->query("SET IDENTITY_INSERT \"$table\" " . ($allow ? "ON" : "OFF"));
+	}
+
+	/**
+	 * Check if a fulltext index exists on a particular table name.
+	 * @return boolean TRUE index exists | FALSE index does not exist
+	 */
+	function fulltextIndexExists($tableName) {
+		return (bool) $this->query("
+			SELECT 1 FROM sys.fulltext_indexes i
+			JOIN sys.objects o ON i.object_id = o.object_id
+			WHERE o.name = '$tableName'
+			")->value();
 	}
 
 	/**
