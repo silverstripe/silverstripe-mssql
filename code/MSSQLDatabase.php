@@ -682,14 +682,14 @@ class MSSQLDatabase extends SS_Database {
 				if($this->fullTextEnabled) {
 					//Enable full text search.
 					$this->createFullTextCatalog();
-				
+					
 					$primary_key=$this->getPrimaryKey($tableName);
-				
-					//First, we need to see if a full text search already exists:
-					$result=$this->query("SELECT object_id FROM sys.fulltext_indexes WHERE object_id=object_id('$tableName');")->first();
 					
 					$drop = '';
-					if($result) $drop = "DROP FULLTEXT INDEX ON \"" . $tableName . "\";";
+					if($this->fulltextIndexExists($tableName)) {
+						$drop = "DROP FULLTEXT INDEX ON \"$tableName\";";
+					}
+					
 					return $drop . "CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
 				}
 			}
