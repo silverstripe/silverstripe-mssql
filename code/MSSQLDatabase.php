@@ -335,12 +335,20 @@ class MSSQLDatabase extends SS_Database {
 		if($fields) foreach($fields as $k => $v) $fieldSchemas .= "\"$k\" $v,\n";
 		
 		// Temporary tables start with "#" in MSSQL-land
-		if(!empty($options['temporary'])) $tableName = "#$tableName";
+		if(!empty($options['temporary'])) {
+			$tableName = "#$tableName";
+			// mssql stores temporary tables in the "tempdb" database - we need to drop it first before re-creating it!
+			// We have to do a specific query to do this because it's a special type of table object
+			$drop = DB::query("SELECT 1 FROM tempdb..sysobjects WHERE name LIKE '$tableName%'");
+			if($drop->value()) {
+				DB::query("DROP TABLE $tableName");
+			}
+		}
 		
 		$this->query("CREATE TABLE \"$tableName\" (
-				$fieldSchemas
-				primary key (\"ID\")
-			);");
+			$fieldSchemas
+			primary key (\"ID\")
+		);");
 
 		//we need to generate indexes like this: CREATE INDEX IX_vault_to_export ON vault (to_export);
 		//This needs to be done AFTER the table creation, so we can set up the fulltext indexes correctly
