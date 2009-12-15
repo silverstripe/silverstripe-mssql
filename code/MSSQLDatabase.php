@@ -339,9 +339,9 @@ class MSSQLDatabase extends SS_Database {
 			$tableName = "#$tableName";
 			// mssql stores temporary tables in the "tempdb" database - we need to drop it first before re-creating it!
 			// We have to do a specific query to do this because it's a special type of table object
-			$drop = DB::query("SELECT 1 FROM tempdb..sysobjects WHERE name LIKE '$tableName%'");
+			$drop = $this->query("SELECT 1 FROM tempdb..sysobjects WHERE name LIKE '$tableName%'");
 			if($drop->value()) {
-				DB::query("DROP TABLE $tableName");
+				$this->query("DROP TABLE $tableName");
 			}
 		}
 		
