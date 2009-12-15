@@ -336,20 +336,15 @@ class MSSQLDatabase extends SS_Database {
 		
 		// Temporary tables start with "#" in MSSQL-land
 		if(!empty($options['temporary'])) {
-			$tableName = "#$tableName";
-			// mssql stores temporary tables in the "tempdb" database - we need to drop it first before re-creating it!
-			// We have to do a specific query to do this because it's a special type of table object
-			$drop = $this->query("SELECT 1 FROM tempdb..sysobjects WHERE name LIKE '$tableName%'");
-			if($drop->value()) {
-				$this->query("DROP TABLE $tableName");
-			}
+			// Randomize the temp table name to avoid conflicts in the tempdb table which derived databases share
+			$tableName = "#$tableName" . '-' . rand(1000000, 9999999);
 		}
 		
 		$this->query("CREATE TABLE \"$tableName\" (
 			$fieldSchemas
 			primary key (\"ID\")
 		);");
-
+		
 		//we need to generate indexes like this: CREATE INDEX IX_vault_to_export ON vault (to_export);
 		//This needs to be done AFTER the table creation, so we can set up the fulltext indexes correctly
 		if($indexes) foreach($indexes as $k => $v) {
