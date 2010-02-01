@@ -447,20 +447,15 @@ class MSSQLDatabase extends SS_Database {
 		$matches=Array();
 		preg_match($pattern, $colSpec, $matches);
 		
-		//if($matches[1]=='serial8')
-		//	return '';
-		
-		//drop the index if it exists:
+		// drop the index if it exists
 		$alterCol='';
-		if(isset($indexList[$colName]) && $colName!='ID'){
-			//$alterCol = "\nDROP INDEX \"$tableName\".ix_{$tableName}_{$colName};";
-			//The indexname value should hold the name of the index, so we don't have to construct it outselves.
-			//This also means we can use internal indexes if they happen to appear.
-			$alterCol = "\nDROP INDEX \"$tableName\"." . $indexList[$colName]['indexname'] . ';';
+		$indexName = isset($indexList[$colName]['indexname']) ? $indexList[$colName]['indexname'] : null;
+		if($indexName && $colName != 'ID') {
+			$alterCol = "\nDROP INDEX \"$indexName\" ON \"$tableName\";";
 		}
 		
 		// fulltext indexes need to be dropped if alterting a table
-		if($this->fulltextIndexExists($tableName)) {
+		if($this->fulltextIndexExists($tableName) === true) {
 			$alterCol .= "\nDROP FULLTEXT INDEX ON \"$tableName\";";
 		}
 
@@ -558,13 +553,20 @@ class MSSQLDatabase extends SS_Database {
 	
 	public function fieldList($table) {
 		//This gets us more information than we need, but I've included it all for the moment....
-		$fields = $this->query("SELECT ordinal_position, column_name, data_type, column_default, 
+		$fieldRecords = $this->query("SELECT ordinal_position, column_name, data_type, column_default, 
 			is_nullable, character_maximum_length, numeric_precision, numeric_scale
 			FROM information_schema.columns WHERE table_name = '$table' 
 			ORDER BY ordinal_position;");
-		
+
+		// Cache the records from the query - otherwise a lack of multiple active result sets
+		// will cause subsequent queries to fail in this method
+		$fields = array();
 		$output = array();
-		if($fields) foreach($fields as $field) {
+		foreach($fieldRecords as $record) {
+			$fields[] = $record;
+		}
+		
+		foreach($fields as $field) {
 			// Update the data_type field to be a complete column definition string for use by
 			// SS_Database::requireField()
 			switch($field['data_type']){
@@ -689,7 +691,7 @@ class MSSQLDatabase extends SS_Database {
 					$primary_key=$this->getPrimaryKey($tableName);
 					
 					$drop = '';
-					if($this->fulltextIndexExists($tableName)) {
+					if($this->fulltextIndexExists($tableName) === true) {
 						$drop = "DROP FULLTEXT INDEX ON \"$tableName\";";
 					}
 					
@@ -1269,9 +1271,11 @@ class MSSQLDatabase extends SS_Database {
 
 	/**
 	 * Check if a fulltext index exists on a particular table name.
-	 * @return boolean TRUE index exists | FALSE index does not exist
+	 * @return boolean TRUE index exists | FALSE index does not exist | NULL no support
 	 */
 	function fulltextIndexExists($tableName) {
+		// Special case for no full text index support
+		if(!$this->fullTextEnabled) return null;
 		return (bool) $this->query("
 			SELECT 1 FROM sys.fulltext_indexes i
 			JOIN sys.objects o ON i.object_id = o.object_id
