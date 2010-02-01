@@ -22,19 +22,19 @@ class MSSQLDatabase extends SS_Database {
 	 * Connection to the DBMS.
 	 * @var resource
 	 */
-	private $dbConn;
+	protected $dbConn;
 	
 	/**
 	 * True if we are connected to a database.
 	 * @var boolean
 	 */
-	private $active;
+	protected $active;
 	
 	/**
 	 * The name of the database.
 	 * @var string
 	 */
-	private $database;
+	protected $database;
 	
 	/**
 	 * Does this database have full-text support?
@@ -46,26 +46,26 @@ class MSSQLDatabase extends SS_Database {
 	 * If true, use the mssql_... functions.
 	 * If false use the sqlsrv_... functions
 	 */
-	private $mssql = null;
+	protected $mssql = null;
 
 	/**
 	 * Sorts the last query's affected row count, for sqlsrv module only.
 	 * @todo This is a bit clumsy; affectedRows() should be moved to {@link Query} object, so that this isn't necessary.
 	 */
-	private $lastAffectedRows;
+	protected $lastAffectedRows;
 	
 	/**
 	 * The version of MSSQL
 	 * @var float
 	 */
-	private $mssqlVersion;
+	protected $mssqlVersion;
 	
 	/**
 	 * Words that will trigger an error if passed to a SQL Server fulltext search
 	 */
 	public static $noiseWords = array("about", "1", "after", "2", "all", "also", "3", "an", "4", "and", "5", "another", "6", "any", "7", "are", "8", "as", "9", "at", "0", "be", "$", "because", "been", "before", "being", "between", "both", "but", "by", "came", "can", "come", "could", "did", "do", "does", "each", "else", "for", "from", "get", "got", "has", "had", "he", "have", "her", "here", "him", "himself", "his", "how", "if", "in", "into", "is", "it", "its", "just", "like", "make", "many", "me", "might", "more", "most", "much", "must", "my", "never", "no", "now", "of", "on", "only", "or", "other", "our", "out", "over", "re", "said", "same", "see", "should", "since", "so", "some", "still", "such", "take", "than", "that", "the", "their", "them", "then", "there", "these", "they", "this", "those", "through", "to", "too", "under", "up", "use", "very", "want", "was", "way", "we", "well", "were", "what", "when", "where", "which", "while", "who", "will", "with", "would", "you", "your", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z");
 	
-	private $supportsTransactions=false;
+	protected $supportsTransactions=false;
 	
 	/**
 	 * Connect to a MS SQL database.
@@ -393,7 +393,7 @@ class MSSQLDatabase extends SS_Database {
 	 * @param string $tableName Name of table the column exists in
 	 * @param string $columnName Name of column to check for
 	 */
-	private function ColumnConstraints($tableName, $columnName) {
+	protected function ColumnConstraints($tableName, $columnName) {
 		$constraint = $this->query("SELECT CC.CONSTRAINT_NAME, CAST(CHECK_CLAUSE AS TEXT) AS CHECK_CLAUSE, COLUMN_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$tableName' AND COLUMN_NAME='" . $columnName . "';")->first();
 		return $constraint;
 	}
@@ -402,7 +402,7 @@ class MSSQLDatabase extends SS_Database {
 	 * Return the name of the default constraint applied to $tableName.$colName.
 	 * Will return null if no such constraint exists
 	 */
-	private function defaultConstraintName($tableName, $colName) {
+	protected function defaultConstraintName($tableName, $colName) {
 		return $this->query("SELECT s.name --default name
 			FROM sys.sysobjects s
 			join sys.syscolumns c ON s.parent_obj = c.id
@@ -416,7 +416,7 @@ class MSSQLDatabase extends SS_Database {
 	/**
 	 * Get the actual enum fields from the constraint value:
 	 */
-	private function EnumValuesFromConstraint($constraint){
+	protected function EnumValuesFromConstraint($constraint){
 		$segments=preg_split('/ +OR *\[/i', $constraint);
 		$constraints=Array();
 		foreach($segments as $this_segment){
@@ -438,7 +438,7 @@ class MSSQLDatabase extends SS_Database {
 	 * @param $colSpec   String which contains conditions for a column
 	 * @return string
 	 */
-	private function alterTableAlterColumn($tableName, $colName, $colSpec, $indexList){
+	protected function alterTableAlterColumn($tableName, $colName, $colSpec, $indexList){
 
 		// First, we split the column specifications into parts
 		// TODO: this returns an empty array for the following string: int(11) not null auto_increment
