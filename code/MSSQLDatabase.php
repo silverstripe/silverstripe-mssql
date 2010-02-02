@@ -53,13 +53,7 @@ class MSSQLDatabase extends SS_Database {
 	 * @todo This is a bit clumsy; affectedRows() should be moved to {@link Query} object, so that this isn't necessary.
 	 */
 	protected $lastAffectedRows;
-	
-	/**
-	 * The version of MSSQL
-	 * @var float
-	 */
-	protected $mssqlVersion;
-	
+
 	/**
 	 * Words that will trigger an error if passed to a SQL Server fulltext search
 	 */
