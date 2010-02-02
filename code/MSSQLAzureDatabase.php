@@ -48,7 +48,7 @@ class MSSQLAzureDatabase extends MSSQLDatabase {
 		$this->query('SET QUOTED_IDENTIFIER ON');
 		$this->query('SET TEXTSIZE 2147483647');
 		
-		return $conn
+		return $conn;
 	}
 
 	/**
