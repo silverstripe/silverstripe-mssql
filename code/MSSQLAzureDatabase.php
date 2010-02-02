@@ -23,11 +23,16 @@ class MSSQLAzureDatabase extends MSSQLDatabase {
 	protected $fullTextEnabled = false;
 
 	public function __construct($parameters) {
-		$this->connectDatabase($parameters);
+		$this->dbConn = $this->connectDatabase($parameters);
 	}
 
+	/**
+	 * Connect to a SQL Azure database with the given parameters.
+	 * @param array $parameters Connection parameters set by environment
+	 * @return resource SQL Azure database connection link
+	 */
 	protected function connectDatabase($parameters) {
-		$this->dbConn = sqlsrv_connect($parameters['server'], array(
+		$conn = sqlsrv_connect($parameters['server'], array(
 			'Database' => $parameters['database'],
 			'UID' => $parameters['username'],
 			'PWD' => $parameters['password'],
@@ -40,9 +45,10 @@ class MSSQLAzureDatabase extends MSSQLDatabase {
 		$this->mssql = false; // mssql functions don't work with this database
 		$this->fullTextEnabled = false;
 
-		// Configure the connection
 		$this->query('SET QUOTED_IDENTIFIER ON');
 		$this->query('SET TEXTSIZE 2147483647');
+		
+		return $conn
 	}
 
 	/**
