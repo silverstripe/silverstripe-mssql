@@ -23,7 +23,7 @@ class MSSQLAzureDatabase extends MSSQLDatabase {
 	protected $fullTextEnabled = false;
 
 	public function __construct($parameters) {
-		$this->dbConn = $this->connectDatabase($parameters);
+		$this->connectDatabase($parameters);
 	}
 
 	/**
@@ -32,7 +32,7 @@ class MSSQLAzureDatabase extends MSSQLDatabase {
 	 * @return resource SQL Azure database connection link
 	 */
 	protected function connectDatabase($parameters) {
-		$conn = sqlsrv_connect($parameters['server'], array(
+		$this->dbConn = sqlsrv_connect($parameters['server'], array(
 			'Database' => $parameters['database'],
 			'UID' => $parameters['username'],
 			'PWD' => $parameters['password'],
@@ -47,8 +47,6 @@ class MSSQLAzureDatabase extends MSSQLDatabase {
 
 		$this->query('SET QUOTED_IDENTIFIER ON');
 		$this->query('SET TEXTSIZE 2147483647');
-		
-		return $conn;
 	}
 
 	/**
