@@ -23,28 +23,48 @@ class MSSQLAzureDatabase extends MSSQLDatabase {
 	protected $fullTextEnabled = false;
 
 	public function __construct($parameters) {
-		$this->mssql = false;
+		$this->connectDatabase($parameters);
+	}
 
-		$connectionInfo = array(
+	protected function connectDatabase($parameters) {
+		$this->dbConn = sqlsrv_connect($parameters['server'], array(
 			'Database' => $parameters['database'],
 			'UID' => $parameters['username'],
 			'PWD' => $parameters['password'],
 			'MultipleActiveResultSets' => '0'
-		);
+		));
 
-		$this->dbConn = sqlsrv_connect($parameters['server'], $connectionInfo);
+		$this->tableList = $this->fieldList = $this->indexList = null;
+		$this->database = $parameters['database'];
+		$this->active = true;
+		$this->mssql = false; // mssql functions don't work with this database
+		$this->fullTextEnabled = false;
 
-		if(!$this->dbConn) {
-			$this->databaseError("Couldn't connect to MS SQL database");
-		} else {
-			$this->database = $parameters['database'];
-			$this->active = true;
-			$this->fullTextEnabled = false;
-				
-			// Configure the connection
-			$this->query('SET QUOTED_IDENTIFIER ON');
-			$this->query('SET TEXTSIZE 2147483647');
-		}
+		// Configure the connection
+		$this->query('SET QUOTED_IDENTIFIER ON');
+		$this->query('SET TEXTSIZE 2147483647');
+	}
+
+	/**
+	 * Switches to the given database.
+	 * 
+	 * If the database doesn't exist, you should call
+	 * createDatabase() after calling selectDatabase()
+	 *
+	 * IMPORTANT: SQL Azure doesn't support "USE", so we need
+	 * to reinitialize the database connection with the requested
+	 * database name.
+	 * 
+	 * @param string $dbname The database name to switch to
+	 */
+	public function selectDatabase($dbname) {
+		global $databaseConfig;
+		$parameters = array();
+		$parameters['database'] = $dbname;
+		$parameters['server'] = $databaseConfig['server'];
+		$parameters['username'] = $databaseConfig['username'];
+		$parameters['password'] = $databaseConfig['password'];
+		$this->connectDatabase($parameters);
 	}
 
 }
