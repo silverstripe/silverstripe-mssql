@@ -138,14 +138,12 @@ class MSSQLDatabase extends SS_Database {
 	
 	/**
 	 * This will set up the full text search capabilities.
-	 * Theoretically, you don't need to 'enable' it every time...
 	 *
 	 * TODO: make this a _config.php setting
 	 * TODO: VERY IMPORTANT: move this so it only gets called upon a dev/build action
 	 */
-	function createFullTextCatalog(){
+	function createFullTextCatalog() {
 		if($this->fullTextEnabled()) {
-			$this->query("exec sp_fulltext_database 'enable';");
 			$result = $this->query("SELECT name FROM sys.fulltext_catalogs WHERE name = 'ftCatalog';")->value();
 			if(!$result) $this->query("CREATE FULLTEXT CATALOG ftCatalog AS DEFAULT;");
 		}
