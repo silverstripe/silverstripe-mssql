@@ -37,12 +37,6 @@ class MSSQLDatabase extends SS_Database {
 	protected $database;
 	
 	/**
-	 * Does this database have full-text support?
-	 * @var boolean
-	 */
-	protected $fullTextEnabled = true;
-	
-	/**
 	 * If true, use the mssql_... functions.
 	 * If false use the sqlsrv_... functions
 	 */
@@ -117,6 +111,17 @@ class MSSQLDatabase extends SS_Database {
 	}
 	
 	/**
+	 * Checks whether the current database as fulltext
+	 * support enabled or not by looking into the
+	 * system database table.
+	 * 
+	 * @return boolean
+	 */
+	public function fullTextEnabled() {
+		return (boolean) DB::query("SELECT is_fulltext_enabled FROM sys.databases WHERE name = '$this->database'");
+	}
+	
+	/**
 	 * Throw a database error
 	 */
 	function databaseError($message, $errorLevel = E_USER_ERROR) {
@@ -139,7 +144,7 @@ class MSSQLDatabase extends SS_Database {
 	 * TODO: VERY IMPORTANT: move this so it only gets called upon a dev/build action
 	 */
 	function createFullTextCatalog(){
-		if($this->fullTextEnabled) {
+		if($this->fullTextEnabled()) {
 			$this->query("exec sp_fulltext_database 'enable';");
 			$result = $this->query("SELECT name FROM sys.fulltext_catalogs WHERE name = 'ftCatalog';")->value();
 			if(!$result) $this->query("CREATE FULLTEXT CATALOG ftCatalog AS DEFAULT;");
@@ -678,7 +683,7 @@ class MSSQLDatabase extends SS_Database {
 		} else {
 			//create a type-specific index
 			if($indexSpec['type'] == 'fulltext') {
-				if($this->fullTextEnabled) {
+				if($this->fullTextEnabled()) {
 					//Enable full text search.
 					$this->createFullTextCatalog();
 					
@@ -748,7 +753,7 @@ class MSSQLDatabase extends SS_Database {
   		}
   		
   		//Now we need to check to see if we have any fulltext indexes attached to this table:
-		if($this->fullTextEnabled) {
+		if($this->fullTextEnabled()) {
 	  		$result=DB::query('EXEC sp_help_fulltext_columns;');
 	  		$columns='';
 	  		foreach($result as $row){
@@ -1147,7 +1152,7 @@ class MSSQLDatabase extends SS_Database {
 	 */
 	public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
 		$searchResults = new DataObjectSet();
-		if(!$this->fullTextEnabled) {
+		if(!$this->fullTextEnabled()) {
 			return $searchResults;
 		}
 		
@@ -1228,7 +1233,7 @@ class MSSQLDatabase extends SS_Database {
 	 */
 	function fulltextIndexExists($tableName) {
 		// Special case for no full text index support
-		if(!$this->fullTextEnabled) return null;
+		if(!$this->fullTextEnabled()) return null;
 		return (bool) $this->query("
 			SELECT 1 FROM sys.fulltext_indexes i
 			JOIN sys.objects o ON i.object_id = o.object_id
