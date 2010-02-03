@@ -118,7 +118,7 @@ class MSSQLDatabase extends SS_Database {
 	 * @return boolean
 	 */
 	public function fullTextEnabled() {
-		return (boolean) DB::query("SELECT is_fulltext_enabled FROM sys.databases WHERE name = '$this->database'");
+		return (boolean) DB::query("SELECT is_fulltext_enabled FROM sys.databases WHERE name = '$this->database'")->value();
 	}
 	
 	/**
