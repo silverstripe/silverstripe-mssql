@@ -828,18 +828,10 @@ class MSSQLDatabase extends SS_Database {
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
-	public function boolean($values, $asDbValue=false){
+	public function boolean($values) {
 		//Annoyingly, we need to do a good ol' fashioned switch here:
 		($values['default']) ? $default='1' : $default='0';
-		
-		if($asDbValue) {
-			return array(
-				'data_type'=>'bit', 
-				'default' => $default
-			);
-		} else {
-			return 'bit not null default ' . $default;
-		}
+		return 'bit not null default ' . $default;
 	}
 	
 	/**
@@ -848,14 +840,8 @@ class MSSQLDatabase extends SS_Database {
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
-	public function date($values, $asDbValue=false){
-		if($asDbValue) {
-			return array(
-				'data_type' => 'decimal',
-			);
-		} else {
-			return 'datetime null';
-		}
+	public function date($values) {
+		return 'datetime null';
 	}
 	
 	/**
@@ -864,7 +850,7 @@ class MSSQLDatabase extends SS_Database {
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
-	public function decimal($values, $asDbValue=false){
+	public function decimal($values) {
 		// Avoid empty strings being put in the db
 		if($values['precision'] == '') {
 			$precision = 1;
@@ -877,11 +863,7 @@ class MSSQLDatabase extends SS_Database {
 			$defaultValue = $values['default'];
 		}
 		
-		if($asDbValue) {
-			return array('data_type'=>'decimal', 'numeric_precision'=>'9,2');
-		} else {
-			return 'decimal(' . $precision . ') not null default ' . $defaultValue;
-		}
+		return 'decimal(' . $precision . ') not null default ' . $defaultValue;
 	}
 	
 	/**
@@ -890,24 +872,16 @@ class MSSQLDatabase extends SS_Database {
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
-	public function enum($values, $asDbValue=false){
+	public function enum($values) {
 		// Enums are a bit different. We'll be creating a varchar(255) with a constraint of all the
 		// usual enum options.
 		// NOTE: In this one instance, we are including the table name in the values array
 
 		$maxLength = max(array_map('strlen', $values['enums']));
 
-		if($asDbValue) {
-			return array(
-				'data_type'=>'varchar', 
-				'default' => $values['default'],
-				'character_maximum_length'=>$maxLength,
-			);
-		} else {
-			return "varchar($maxLength) not null default '" . $values['default'] 
-				. "' check(\"" . $values['name'] . "\" in ('" . implode("','", $values['enums']) 
-				. "'))";
-		}
+		return "varchar($maxLength) not null default '" . $values['default'] 
+			. "' check(\"" . $values['name'] . "\" in ('" . implode("','", $values['enums']) 
+			. "'))";
 	}
 	
 	/**
@@ -916,10 +890,8 @@ class MSSQLDatabase extends SS_Database {
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
-	public function float($values, $asDbValue=false){
-		if($asDbValue)
-			return Array('data_type'=>'float');
-		else return 'float';
+	public function float($values) {
+		return 'float';
 	}
 	
 	/**
@@ -928,12 +900,9 @@ class MSSQLDatabase extends SS_Database {
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
-	public function int($values, $asDbValue=false){
+	public function int($values) {
 		//We'll be using an 8 digit precision to keep it in line with the serial8 datatype for ID columns
-		if($asDbValue)
-			return Array('data_type'=>'numeric', 'numeric_precision'=>'8', 'default'=>(int)$values['default']);
-		else
-			return 'numeric(8) not null default ' . (int)$values['default'];
+		return 'numeric(8) not null default ' . (int) $values['default'];
 	}
 	
 	/**
@@ -943,11 +912,8 @@ class MSSQLDatabase extends SS_Database {
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
-	public function ss_datetime($values, $asDbValue=false){
-		if($asDbValue)
-			return Array('data_type'=>'datetime');
-		else
-			return 'datetime null';
+	public function ss_datetime($values) {
+		return 'datetime null';
 	}
 	
 	/**
@@ -956,15 +922,8 @@ class MSSQLDatabase extends SS_Database {
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
-	public function text($values, $asDbValue=false){
-		if($asDbValue) {
-			return array(
-				'data_type'=>'varchar',
-				'character_maximum_length' => -1,
-			);
-		} else {
-			return 'varchar(max) null';
-		}
+	public function text($values) {
+		return 'varchar(max) null';
 	}
 	
 	/**
@@ -983,21 +942,16 @@ class MSSQLDatabase extends SS_Database {
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
-	public function varchar($values, $asDbValue=false){
-		if($asDbValue)
-			return Array('data_type'=>'varchar', 'character_maximum_length'=>$values['precision']);
-		else
-			return 'varchar(' . $values['precision'] . ') null';
+	public function varchar($values) {
+		return 'varchar(' . $values['precision'] . ') null';
 	}
 	
 	/**
 	 * Return a 4 digit numeric type.
 	 * @return string
 	 */
-	public function year($values, $asDbValue=false){
-		if($asDbValue)
-			return Array('data_type'=>'numeric', 'numeric_precision'=>'4');
-		else return 'numeric(4)'; 
+	public function year($values) {
+		return 'numeric(4)'; 
 	}
 	
 	function escape_character($escape=false){
