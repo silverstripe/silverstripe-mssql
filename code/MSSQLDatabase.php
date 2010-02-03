@@ -1025,11 +1025,9 @@ class MSSQLDatabase extends SS_Database {
 	}
 
 	/**
-	 * Because NOW() doesn't always work...
-	 * MSSQL, I'm looking at you
-	 *
+	 * SQL Server uses CURRENT_TIMESTAMP for the current date/time.
 	 */
-	function now(){
+	function now() {
 		return 'CURRENT_TIMESTAMP';
 	}
 	
