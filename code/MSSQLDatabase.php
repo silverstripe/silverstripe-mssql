@@ -872,9 +872,16 @@ class MSSQLDatabase extends SS_Database {
 			$precision = $values['precision'];
 		}
 		
-		if($asDbValue)
-			return Array('data_type'=>'decimal', 'numeric_precision'=>'9,2');
-		else return 'decimal(' . $precision . ') not null default 0';
+		$defaultValue = '0';
+		if(isset($values['default']) && is_numeric($values['default'])) {
+			$defaultValue = $values['default'];
+		}
+		
+		if($asDbValue) {
+			return array('data_type'=>'decimal', 'numeric_precision'=>'9,2');
+		} else {
+			return 'decimal(' . $precision . ') not null default ' . $defaultValue;
+		}
 	}
 	
 	/**
