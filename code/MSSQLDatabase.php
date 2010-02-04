@@ -1346,7 +1346,7 @@ class MSSQLDatabase extends SS_Database {
 		if(preg_match('/^now$/i', $date)) {
 			$date = "CURRENT_TIMESTAMP";
 		} else if(preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/i', $date)) {
-			$date = "'$date'";
+			$date = "'$date.000'";
 		}
 
 		if($format == '%U') return "DATEDIFF(s, '19700101', $date)";
