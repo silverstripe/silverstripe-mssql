@@ -888,6 +888,13 @@ class MSSQLDatabase extends SS_Database {
 	}
 	
 	/**
+	 * @todo Make this work like {@link MySQLDatabase::set()}
+	 */
+	public function set($values) {
+		return $this->enum($values);
+	}
+	
+	/**
 	 * Return a float type-formatted string.
 	 * 
 	 * @params array $values Contains a tokenised list of info about this data type
