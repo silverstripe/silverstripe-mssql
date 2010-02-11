@@ -23,10 +23,10 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 	/**
 	 * Ensure that the database server exists.
 	 * @param array $databaseConfig Associative array of db configuration, e.g. "server", "username" etc
-	 * @return array Result - e.g. array('okay' => true, 'error' => 'details of error')
+	 * @return array Result - e.g. array('success' => true, 'error' => 'details of error')
 	 */
 	public function requireDatabaseServer($databaseConfig) {
-		$okay = false;
+		$success = false;
 		$error = '';
 		
 		if(function_exists('mssql_connect')) {
@@ -39,14 +39,14 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 		}
 		
 		if($conn) {
-			$okay = true;
+			$success = true;
 		} else {
-			$okay = false;
+			$success = false;
 			$error = 'SQL Server requires a valid username and password to determine if the server exists.';
 		}
 		
 		return array(
-			'okay' => $okay,
+			'success' => $success,
 			'error' => $error
 		);
 	}
@@ -56,10 +56,10 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 	 * The established connection resource is returned with the results as well.
 	 * 
 	 * @param array $databaseConfig Associative array of db configuration, e.g. "server", "username" etc
-	 * @return array Result - e.g. array('okay' => true, 'connection' => mssql link, 'error' => 'details of error')
+	 * @return array Result - e.g. array('success' => true, 'connection' => mssql link, 'error' => 'details of error')
 	 */
 	public function requireDatabaseConnection($databaseConfig) {
-		$okay = false;
+		$success = false;
 		$error = '';
 		
 		if(function_exists('mssql_connect')) {
@@ -72,14 +72,14 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 		}
 		
 		if($conn) {
-			$okay = true;
+			$success = true;
 		} else {
-			$okay = false;
+			$success = false;
 			$error = '';
 		}
 		
 		return array(
-			'okay' => $okay,
+			'success' => $success,
 			'connection' => $conn,
 			'error' => $error
 		);
@@ -90,11 +90,11 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 	 * or be able to create one if it doesn't exist.
 	 * 
 	 * @param array $databaseConfig Associative array of db configuration, e.g. "server", "username" etc
-	 * @return array Result - e.g. array('okay' => true, 'existsAlready' => 'true')
+	 * @return array Result - e.g. array('success' => true, 'alreadyExists' => 'true')
 	 */
 	public function requireDatabaseOrCreatePermissions($databaseConfig) {
-		$okay = false;
-		$existsAlready = false;
+		$success = false;
+		$alreadyExists = false;
 
 		$check = $this->requireDatabaseConnection($databaseConfig);
 		$conn = $check['connection'];
@@ -103,23 +103,23 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 			||
 			(function_exists('sqlsrv_select_db') && @sqlsrv_select_db($conn, $databaseConfig['database']))
 		) {
-			$okay = true;
-			$existsAlready = true;
+			$success = true;
+			$alreadyExists = true;
 		} else {
 			if(function_exists('mssql_query') && mssql_query("CREATE DATABASE testing123", $conn)) {
 				mssql_query("DROP DATABASE testing123", $conn);
-				$okay = true;
-				$existsAlready = false;
+				$success = true;
+				$alreadyExists = false;
 			} elseif(function_exists('sqlsrv_query') && @sqlsrv_query($conn, "CREATE DATABASE testing123")) {
 				sqlsrv_query($conn, "DROP DATABASE testing123");
-				$okay = true;
-				$existsAlready = false;
+				$success = true;
+				$alreadyExists = false;
 			}
 		}
 		
 		return array(
-			'okay' => $okay,
-			'existsAlready' => $existsAlready
+			'success' => $success,
+			'alreadyExists' => $alreadyExists
 		);
 	}
 
