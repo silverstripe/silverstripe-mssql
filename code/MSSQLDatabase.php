@@ -111,14 +111,19 @@ class MSSQLDatabase extends SS_Database {
 	}
 	
 	/**
-	 * Checks whether the current database as fulltext
-	 * support enabled or not by looking into the
-	 * system database table.
+	 * Checks whether the current SQL Server version has full-text
+	 * support installed and full-text is enabled for this database.
 	 * 
 	 * @return boolean
 	 */
 	public function fullTextEnabled() {
-		return (boolean) DB::query("SELECT is_fulltext_enabled FROM sys.databases WHERE name = '$this->database'")->value();
+		$isInstalled = (boolean) DB::query("SELECT fulltextserviceproperty('isfulltextinstalled')")->value();
+		$enabledForDb = (boolean) DB::query("
+			SELECT is_fulltext_enabled
+			FROM sys.databases
+			WHERE name = '$this->database'
+		")->value();
+		return $isInstalled && $enabledForDb;
 	}
 	
 	/**
