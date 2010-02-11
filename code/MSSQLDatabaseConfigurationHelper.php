@@ -78,6 +78,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 		
 		return array(
 			'success' => $success,
+			'connection' => $conn,
 			'error' => $error
 		);
 	}
