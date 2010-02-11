@@ -53,10 +53,8 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 
 	/**
 	 * Ensure a database connection is possible using credentials provided.
-	 * The established connection resource is returned with the results as well.
-	 * 
 	 * @param array $databaseConfig Associative array of db configuration, e.g. "server", "username" etc
-	 * @return array Result - e.g. array('success' => true, 'connection' => mssql link, 'error' => 'details of error')
+	 * @return array Result - e.g. array('success' => true, 'error' => 'details of error')
 	 */
 	public function requireDatabaseConnection($databaseConfig) {
 		$success = false;
@@ -80,7 +78,6 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 		
 		return array(
 			'success' => $success,
-			'connection' => $conn,
 			'error' => $error
 		);
 	}
