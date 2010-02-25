@@ -1230,7 +1230,7 @@ class MSSQLDatabase extends SS_Database {
 		
 		foreach($result as $row){
 			$row_result=DataObject::get_by_id($row['Source'], $row['ID']);
-			$searchResults->push($row_result);
+			if($row_result->canView()) $searchResults->push($row_result);
 		}
 		
 		$searchResults->setPageLimits($start, $pageLength, $totalCount);
