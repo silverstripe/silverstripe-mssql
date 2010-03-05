@@ -75,13 +75,20 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 				'UID' => $databaseConfig['username'],
 				'PWD' => $databaseConfig['password']
 			));
+			
+			$errors = sqlsrv_errors();
+			if($errors) {
+				$error .= "\n";
+				foreach($errors as $detail) {
+					$error .= "\n" . @$detail['message'] . "\n";
+				}
+			}
 		}
 		
 		if($conn) {
 			$success = true;
 		} else {
 			$success = false;
-			$error = '';
 		}
 		
 		return array(
