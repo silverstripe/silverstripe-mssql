@@ -36,13 +36,21 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 				'UID' => $databaseConfig['username'],
 				'PWD' => $databaseConfig['password']
 			));
+			
+			$errors = sqlsrv_errors();
+			if($errors) {
+				$error .= "\n";
+				foreach($errors as $detail) {
+					$error .= "\n" . @$detail['message'] . "\n";
+				}
+			}
 		}
 		
 		if($conn) {
 			$success = true;
 		} else {
 			$success = false;
-			$error = 'SQL Server requires a valid username and password to determine if the server exists.';
+			if(!$error) $error = 'SQL Server requires a valid username and password to determine if the server exists.';
 		}
 		
 		return array(
