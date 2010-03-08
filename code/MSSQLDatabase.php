@@ -43,12 +43,6 @@ class MSSQLDatabase extends SS_Database {
 	protected $mssql = null;
 
 	/**
-	 * Sorts the last query's affected row count, for sqlsrv module only.
-	 * @todo This is a bit clumsy; affectedRows() should be moved to {@link Query} object, so that this isn't necessary.
-	 */
-	protected $lastAffectedRows;
-
-	/**
 	 * Words that will trigger an error if passed to a SQL Server fulltext search
 	 */
 	public static $noiseWords = array("about", "1", "after", "2", "all", "also", "3", "an", "4", "and", "5", "another", "6", "any", "7", "are", "8", "as", "9", "at", "0", "be", "$", "because", "been", "before", "being", "between", "both", "but", "by", "came", "can", "come", "could", "did", "do", "does", "each", "else", "for", "from", "get", "got", "has", "had", "he", "have", "her", "here", "him", "himself", "his", "how", "if", "in", "into", "is", "it", "its", "just", "like", "make", "many", "me", "might", "more", "most", "much", "must", "my", "never", "no", "now", "of", "on", "only", "or", "other", "our", "out", "over", "re", "said", "same", "see", "should", "since", "so", "some", "still", "such", "take", "than", "that", "the", "their", "them", "then", "there", "these", "they", "this", "those", "through", "to", "too", "under", "up", "use", "very", "want", "was", "way", "we", "well", "were", "what", "when", "where", "which", "while", "who", "will", "with", "would", "you", "your", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z");
@@ -224,13 +218,7 @@ class MSSQLDatabase extends SS_Database {
 			Debug::message("\n$sql\n{$endtime}ms\n", false);
 		}
 		
-		DB::$lastQuery=$handle;
-		
 		if(!$handle && $errorLevel) $this->databaseError("Couldn't run query: $sql", $errorLevel);
-		
-		if (!$this->mssql) {
-			$this->lastAffectedRows = sqlsrv_rows_affected($handle);
-		}
 		return new MSSQLQuery($this, $handle, $this->mssql);
 	}
 	
@@ -822,7 +810,7 @@ class MSSQLDatabase extends SS_Database {
 		if($this->mssql) {
 			return mssql_rows_affected($this->dbConn);
 		} else {
-			return $this->lastAffectedRows;
+			return sqlsrv_rows_affected($this->dbConn);
 		}
 	}
 	
@@ -1517,7 +1505,7 @@ class MSSQLQuery extends SS_Query {
 		if($this->mssql) {
 			mssql_free_result($this->handle);
 		} else {
-			if($this->handle) sqlsrv_free_stmt($this->handle);
+			sqlsrv_free_stmt($this->handle);
 		}
 	}
 
