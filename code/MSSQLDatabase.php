@@ -85,7 +85,7 @@ class MSSQLDatabase extends SS_Database {
 			$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password'], true);
 		} else {
 			// Disable default warnings as errors behaviour for sqlsrv to keep it in line with mssql functions
-			if(ini_get('sqlsrv.WarningsReturnAsErrors') == 'On') {
+			if(ini_get('sqlsrv.WarningsReturnAsErrors')) {
 				ini_set('sqlsrv.WarningsReturnAsErrors', 'Off');
 			}
 
@@ -131,7 +131,6 @@ class MSSQLDatabase extends SS_Database {
 	 * @return boolean
 	 */
 	public function fullTextEnabled() {
-		return false;
 		if($this->fullTextEnabled === null) {
 			$isInstalled = (boolean) DB::query("SELECT fulltextserviceproperty('isfulltextinstalled')")->value();
 			$enabledForDb = (boolean) DB::query("
