@@ -111,11 +111,14 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 
 		$check = $this->requireDatabaseConnection($databaseConfig);
 		$conn = $check['connection'];
-		if(
-			(function_exists('mssql_select_db') && @mssql_select_db($databaseConfig['database'], $conn))
-			||
-			(function_exists('sqlsrv_select_db') && @sqlsrv_select_db($conn, $databaseConfig['database']))
-		) {
+
+		if(function_exists('mssql_select_db')) {
+			$exists = @mssql_select_db($databaseConfig['database'], $conn);
+		} else {
+			$exists = @sqlsrv_query($conn, "USE \"$databaseConfig[database]\"");
+		}
+
+		if($exists) {
 			$success = true;
 			$alreadyExists = true;
 		} else {
@@ -129,7 +132,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 				$alreadyExists = false;
 			}
 		}
-		
+
 		return array(
 			'success' => $success,
 			'alreadyExists' => $alreadyExists
