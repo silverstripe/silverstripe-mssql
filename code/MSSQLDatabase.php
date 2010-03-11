@@ -138,7 +138,7 @@ class MSSQLDatabase extends SS_Database {
 				FROM sys.databases
 				WHERE name = '$this->database'
 			")->value();
-			$this->fullTextEnabled = ($isInstalled && $enabledForDb);
+			$this->fullTextEnabled = (boolean) ($isInstalled && $enabledForDb);
 		}
 		return $this->fullTextEnabled;
 	}
