@@ -63,8 +63,9 @@ class MSSQLAzureDatabase extends MSSQLDatabase {
 	 */
 	public function selectDatabase($dbname) {
 		global $databaseConfig;
-		$databaseConfig['database'] = $dbname;
-		$this->connectDatabase($databaseConfig);
+		$parameters = $databaseConfig;
+		$parameters['database'] = $dbname;
+		$this->connectDatabase($parameters);
 	}
 
 }
