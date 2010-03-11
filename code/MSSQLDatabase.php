@@ -813,26 +813,7 @@ class MSSQLDatabase extends SS_Database {
 			return sqlsrv_rows_affected($this->dbConn);
 		}
 	}
-	
-	/**
-	 * A function to return the field names and datatypes for the particular table
-	 */
-	public function tableDetails($tableName){
-		user_error("tableDetails not implemented", E_USER_WARNING);
-		return array();
-		/*
-		$query="SELECT a.attname as \"Column\", pg_catalog.format_type(a.atttypid, a.atttypmod) as \"Datatype\" FROM pg_catalog.pg_attribute a WHERE a.attnum > 0 AND NOT a.attisdropped AND a.attrelid = ( SELECT c.oid FROM pg_catalog.pg_class c LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE c.relname ~ '^($tableName)$' AND pg_catalog.pg_table_is_visible(c.oid));";
-		$result=DB::query($query);
-		
-		$table=Array();
-		while($row=pg_fetch_assoc($result)){
-			$table[]=Array('Column'=>$row['Column'], 'DataType'=>$row['DataType']);
-		}
-		
-		return $table;
-		*/
-	}
-	
+
 	/**
 	 * Return a boolean type-formatted string
 	 * We use 'bit' so that we can do numeric-based comparisons
