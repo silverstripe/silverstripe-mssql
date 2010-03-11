@@ -41,6 +41,13 @@ class MSSQLDatabase extends SS_Database {
 	 * If false use the sqlsrv_... functions
 	 */
 	protected $mssql = null;
+	
+	/**
+	 * Stores the affected rows of the last query.
+	 * Used by sqlsrv functions only, as sqlsrv_rows_affected
+	 * accepts a result instead of a database handle.
+	 */
+	protected $lastAffectedRows;
 
 	/**
 	 * Words that will trigger an error if passed to a SQL Server fulltext search
@@ -211,6 +218,7 @@ class MSSQLDatabase extends SS_Database {
 			$handle = mssql_query($sql, $this->dbConn);
 		} else {
 			$handle = sqlsrv_query($this->dbConn, $sql);
+			if($handle) $this->lastAffectedRows = sqlsrv_rows_affected($handle);
 		}
 		
 		if(isset($_REQUEST['showqueries'])) {
@@ -810,7 +818,7 @@ class MSSQLDatabase extends SS_Database {
 		if($this->mssql) {
 			return mssql_rows_affected($this->dbConn);
 		} else {
-			return sqlsrv_rows_affected($this->dbConn);
+			return $this->lastAffectedRows;
 		}
 	}
 
