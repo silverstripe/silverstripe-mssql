@@ -1047,6 +1047,20 @@ class MSSQLDatabase extends SS_Database {
 	}
 	
 	/**
+	 * This is a lookup table for data types.
+	 * 
+	 * For instance, MSSQL uses 'BIGINT', while MySQL uses 'UNSIGNED'
+	 * and PostgreSQL uses 'INT'.
+	 */
+	function dbDataType($type){
+		$values = array(
+			'unsigned integer'=>'BIGINT'
+		);
+		if(isset($values[$type])) return $values[$type];
+		else return '';
+	}
+	
+	/**
 	 * Convert a SQLQuery object into a SQL statement.
 	 */
 	public function sqlQueryToString(SQLQuery $sqlQuery) {
