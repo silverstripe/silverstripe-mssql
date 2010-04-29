@@ -1005,7 +1005,7 @@ class MSSQLDatabase extends SS_Database {
 	 * Returns the SQL command to get all the tables in this database
 	 */
 	function allTablesSQL(){
-		return "SELECT name FROM {$this->database}..sysobjects WHERE xtype = 'U';";
+		return "SELECT \"name\" FROM \"{$this->database}\"..sysobjects WHERE \"xtype\" = 'U';";
 	}
 	
 	/**
