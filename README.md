@@ -7,9 +7,8 @@
 
 ## Requirements
 
- * SilverStripe 2.4 or newer
- * SQL Server 2008 or 2008 R2
+Requirements list can be found here: http://doc.silverstripe.org/modules:mssql
 
 ## Installation
 
-Installation instructions can be found here: http://doc.silverstripe.org/doku.php?id=modules:mssql
+Installation instructions can be found here: http://doc.silverstripe.org/modules:mssql
