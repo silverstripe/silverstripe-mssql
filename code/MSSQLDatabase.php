@@ -226,7 +226,7 @@ class MSSQLDatabase extends SS_Database {
 			Debug::message("\n$sql\n{$endtime}ms\n", false);
 		}
 
-		$error = mssql_get_last_message();
+		$error = function_exists('mssql_get_last_message') ? mssql_get_last_message() : '';
 		if(!$handle && $errorLevel) $this->databaseError("Couldn't run query ($error): $sql", $errorLevel);
 		return new MSSQLQuery($this, $handle, $this->mssql);
 	}
