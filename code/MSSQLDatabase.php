@@ -931,7 +931,7 @@ class MSSQLDatabase extends SS_Database {
 	 * @return string
 	 */
 	public function text($values) {
-		return 'varchar(max) null';
+		return 'nvarchar(max) null';
 	}
 	
 	/**
@@ -951,7 +951,7 @@ class MSSQLDatabase extends SS_Database {
 	 * @return string
 	 */
 	public function varchar($values) {
-		return 'varchar(' . $values['precision'] . ') null';
+		return 'nvarchar(' . $values['precision'] . ') null';
 	}
 	
 	/**
