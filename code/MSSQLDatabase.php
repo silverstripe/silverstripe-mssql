@@ -213,20 +213,21 @@ class MSSQLDatabase extends SS_Database {
 		if(isset($_REQUEST['showqueries'])) { 
 			$starttime = microtime(true);
 		}
-				
+
 		if($this->mssql) {
 			$handle = mssql_query($sql, $this->dbConn);
 		} else {
 			$handle = sqlsrv_query($this->dbConn, $sql);
 			if($handle) $this->lastAffectedRows = sqlsrv_rows_affected($handle);
 		}
-		
+
 		if(isset($_REQUEST['showqueries'])) {
 			$endtime = round(microtime(true) - $starttime,4);
 			Debug::message("\n$sql\n{$endtime}ms\n", false);
 		}
-		
-		if(!$handle && $errorLevel) $this->databaseError("Couldn't run query: $sql", $errorLevel);
+
+		$error = mssql_get_last_message();
+		if(!$handle && $errorLevel) $this->databaseError("Couldn't run query ($error): $sql", $errorLevel);
 		return new MSSQLQuery($this, $handle, $this->mssql);
 	}
 	
