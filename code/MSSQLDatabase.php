@@ -214,11 +214,16 @@ class MSSQLDatabase extends SS_Database {
 			$starttime = microtime(true);
 		}
 
+		$error = '';
 		if($this->mssql) {
 			$handle = mssql_query($sql, $this->dbConn);
+			$error = mssql_get_last_message();
 		} else {
 			$handle = sqlsrv_query($this->dbConn, $sql);
 			if($handle) $this->lastAffectedRows = sqlsrv_rows_affected($handle);
+			if(function_exists('sqlsrv_errors')) {
+				$error = sqlsrv_errors();
+			}
 		}
 
 		if(isset($_REQUEST['showqueries'])) {
@@ -226,7 +231,6 @@ class MSSQLDatabase extends SS_Database {
 			Debug::message("\n$sql\n{$endtime}ms\n", false);
 		}
 
-		$error = function_exists('mssql_get_last_message') ? mssql_get_last_message() : '';
 		if(!$handle && $errorLevel) $this->databaseError("Couldn't run query ($error): $sql", $errorLevel);
 		return new MSSQLQuery($this, $handle, $this->mssql);
 	}
