@@ -99,7 +99,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 	}
 
 	/**
-	 * Ensure that the SQL Server version is at least 10.00.1600 (SQL Server 2008 RTM).
+	 * Ensure that the SQL Server version is at least 10.00.2531 (SQL Server 2008 SP1).
 	 * @see http://www.sqlteam.com/article/sql-server-versions
 	 * @param array $databaseConfig Associative array of db configuration, e.g. "server", "username" etc
 	 * @return array Result - e.g. array('success' => true, 'error' => 'details of error')
@@ -128,7 +128,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 		}
 
 		if($version) {
-			$success = version_compare($version, '10.00.1600', '>=');
+			$success = version_compare($version, '10.00.2531', '>=');
 			if(!$success) {
 				$error = "Your SQL Server version is $version. It's recommended you use at least 10.00.2531 (SQL Server 2008 SP1).";
 			}
