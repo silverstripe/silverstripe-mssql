@@ -112,19 +112,19 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 		// Get the version using SERVERPROPERTY() function
 		if(function_exists('mssql_connect')) {
 			$conn = @mssql_connect($databaseConfig['server'], $databaseConfig['username'], $databaseConfig['password'], true);
-			$result = @mssql_query("SELECT SERVERPROPERTY('ProductVersion')", $conn);
+			$result = @mssql_query("SELECT CONVERT(char(15), SERVERPROPERTY('ProductVersion'))", $conn);
 			$row = @mssql_fetch_array($result);
 		} else {
 			$conn = @sqlsrv_connect($databaseConfig['server'], array(
 				'UID' => $databaseConfig['username'],
 				'PWD' => $databaseConfig['password']
 			));
-			$result = @sqlsrv_query($conn, "SELECT SERVERPROPERTY('ProductVersion')");
+			$result = @sqlsrv_query($conn, "SELECT CONVERT(char(15), SERVERPROPERTY('ProductVersion'))");
 			$row = @sqlsrv_fetch_array($result);
 		}
 
 		if($row && isset($row[0])) {
-			$version = $row[0];
+			$version = trim($row[0]);
 		}
 
 		if($version) {
