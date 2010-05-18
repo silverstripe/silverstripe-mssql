@@ -1349,7 +1349,7 @@ class MSSQLDatabase extends SS_Database {
 	}
 
 	/**
-	 * Function to return an SQL datetime expression that can be used with SQLite3
+	 * Function to return an SQL datetime expression for MSSQL
 	 * used for querying a datetime in a certain format
 	 * @param string $date to be formated, can be either 'now', literal datetime like '1973-10-14 10:30:00' or field name, e.g. '"SiteTree"."Created"'
 	 * @param string $format to be used, supported specifiers:
@@ -1363,7 +1363,6 @@ class MSSQLDatabase extends SS_Database {
 	 * @return string SQL datetime expression to query for a formatted datetime
 	 */
 	function formattedDatetimeClause($date, $format) {
-
 		preg_match_all('/%(.)/', $format, $matches);
 		foreach($matches[1] as $match) if(array_search($match, array('Y','m','d','H','i','s','U')) === false) user_error('formattedDatetimeClause(): unsupported format character %' . $match, E_USER_WARNING);
 
@@ -1409,7 +1408,7 @@ class MSSQLDatabase extends SS_Database {
 	}
 	
 	/**
-	 * Function to return an SQL datetime expression that can be used with SQLite3
+	 * Function to return an SQL datetime expression for MSSQL.
 	 * used for querying a datetime addition
 	 * @param string $date, can be either 'now', literal datetime like '1973-10-14 10:30:00' or field name, e.g. '"SiteTree"."Created"'
 	 * @param string $interval to be added, use the format [sign][integer] [qualifier], e.g. -1 Day, +15 minutes, +1 YEAR
@@ -1424,7 +1423,6 @@ class MSSQLDatabase extends SS_Database {
 	 * @return string SQL datetime expression to query for a datetime (YYYY-MM-DD hh:mm:ss) which is the result of the addition
 	 */
 	function datetimeIntervalClause($date, $interval) {
-
 		$trans = array(
 			'year' => 'yy',
 			'month' => 'mm',
@@ -1446,11 +1444,11 @@ class MSSQLDatabase extends SS_Database {
 		} else if(preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/i', $date)) {
 			$date = "'$date'";
 		}
-		return "LEFT(CONVERT(VARCHAR, DATEADD(" . $trans[strtolower($matches[2])] . ", " . (int)$matches[1] . ", $date), 121), 19)";
+		return "LEFT(CONVERT(VARCHAR, DATEADD(" . $trans[strtolower($matches[2])] . ", " . (int)$matches[1] . ", $date), 120), 19)";
 	}
 
 	/**
-	 * Function to return an SQL datetime expression that can be used with SQLite3
+	 * Function to return an SQL datetime expression for MSSQL.
 	 * used for querying a datetime substraction
 	 * @param string $date1, can be either 'now', literal datetime like '1973-10-14 10:30:00' or field name, e.g. '"SiteTree"."Created"'
 	 * @param string $date2 to be substracted of $date1, can be either 'now', literal datetime like '1973-10-14 10:30:00' or field name, e.g. '"SiteTree"."Created"'
