@@ -987,7 +987,7 @@ class MSSQLDatabase extends SS_Database {
 	 * Returns the SQL command to get all the tables in this database
 	 */
 	function allTablesSQL(){
-		return "SELECT \"name\" FROM \"{$this->database}\"..sysobjects WHERE \"xtype\" = 'U';";
+		return "SELECT \"name\" FROM \"sys\".\"tables\";";
 	}
 	
 	/**
@@ -1134,11 +1134,11 @@ class MSSQLDatabase extends SS_Database {
     	return $value;
 	}
 	
-	/*
+	/**
 	 * This changes the index name depending on database requirements.
-	 * MSSQL requires commas to be replaced with underscores 
+	 * MSSQL requires underscores to be replaced with commas.
 	 */
-	function modifyIndex($index){
+	function modifyIndex($index) {
 		return str_replace('_', ',', $index);
 	}
 	
