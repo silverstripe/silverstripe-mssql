@@ -975,21 +975,6 @@ class MSSQLDatabase extends SS_Database {
 	}
 	
 	/**
-	 * Create a fulltext search datatype for MSSQL.
-	 *
-	 * @param array $spec
-	 */
-	function fulltext($table, $spec){
-		//$spec['name'] is the column we've created that holds all the words we want to index.
-		//This is a coalesced collection of multiple columns if necessary
-		//$spec='create index ix_' . $table . '_' . $spec['name'] . ' on ' . $table . ' using gist(' . $spec['name'] . ');';
-		
-		//return $spec;
-		echo '<span style="color: Red">full text just got called!</span><br>';
-		return '';
-	}
-	
-	/**
 	 * This returns the column which is the primary key for each table
 	 * In Postgres, it is a SERIAL8, which is the equivalent of an auto_increment
 	 *
