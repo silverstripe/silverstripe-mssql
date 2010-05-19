@@ -1150,9 +1150,9 @@ class MSSQLDatabase extends SS_Database {
 	 * @return object DataObjectSet of result pages
 	 */
 	public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
-		$searchResults = new DataObjectSet();
+		$results = new DataObjectSet();
 		if(!$this->fullTextEnabled()) {
-			return $searchResults;
+			return $results;
 		}
 		
 		$keywords = Convert::raw2sql(trim($keywords));
@@ -1175,8 +1175,8 @@ class MSSQLDatabase extends SS_Database {
 		}
 		
 		//Get a list of all the tables and columns we'll be searching on:
-		$result=DB::query('EXEC sp_help_fulltext_columns');
-		$tables= array();
+		$result = DB::query('EXEC sp_help_fulltext_columns');
+		$tables = array();
 		
 		foreach($result as $row){
 			if(substr($row['TABLE_NAME'], -5)!='_Live' && substr($row['TABLE_NAME'], -9)!='_versions') {
@@ -1190,30 +1190,25 @@ class MSSQLDatabase extends SS_Database {
 				
 				$tables[] = $thisSql;
 			}
-			
 		}
-		
+
+		$query = implode(' UNION ', $tables);
+		$result = DB::query($query);
+
 		$totalCount = 0;
-		foreach($tables as $q) {
-			$qR = DB::query($q);
-			$totalCount += $qR->numRecords();
+		foreach($result as $row) {
+			$record = DataObject::get_by_id($row['Source'], $row['ID']);
+			if($record->canView()) {
+				$results->push($record);
+				$totalCount++;
+			}
 		}
-		
-		//We'll do a union query on all of these tables... it's easier!
-		$query=implode(' UNION ', $tables);
-		
-		$result=DB::query($query);
-		
-		foreach($result as $row){
-			$row_result=DataObject::get_by_id($row['Source'], $row['ID']);
-			if($row_result->canView()) $searchResults->push($row_result);
-		}
-		
-		$searchResults->setPageLimits($start, $pageLength, $totalCount);
-		
-		return $searchResults;
+
+		$results->setPageLimits($start, $pageLength, $totalCount);
+
+		return $results;
 	}
-	
+
 	/**
 	 * Allow auto-increment primary key editing on the given table.
 	 * Some databases need to enable this specially.
