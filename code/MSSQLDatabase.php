@@ -1499,7 +1499,10 @@ class MSSQLQuery extends SS_Query {
 		if($this->mssql) {
 			return mssql_num_rows($this->handle);
 		} else {
-			return sqlsrv_num_rows($this->handle);
+			// WARNING: This will only work if the cursor type is NOT forward only!
+			if(function_exists('sqlsrv_num_rows')) {
+				return sqlsrv_num_rows($this->handle);
+			}
 		}
 	}
 
