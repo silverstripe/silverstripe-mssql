@@ -1194,12 +1194,10 @@ class MSSQLDatabase extends SS_Database {
 		}
 		
 		$totalCount = 0;
-		$this->forceNumRows = true;
 		foreach($tables as $q) {
 			$qR = DB::query($q);
 			$totalCount += $qR->numRecords();
 		}
-		$this->forceNumRows = false;
 		
 		//We'll do a union query on all of these tables... it's easier!
 		$query=implode(' UNION ', $tables);
@@ -1456,18 +1454,19 @@ class MSSQLDatabase extends SS_Database {
  * @subpackage model
  */
 class MSSQLQuery extends SS_Query {
+
 	/**
 	 * The MSSQLDatabase object that created this result set.
 	 * @var MSSQLDatabase
 	 */
 	private $database;
-	
+
 	/**
 	 * The internal MSSQL handle that points to the result set.
 	 * @var resource
 	 */
 	private $handle;
-	
+
 	/**
 	 * If true, use the mssql_... functions.
 	 * If false use the sqlsrv_... functions
@@ -1484,7 +1483,7 @@ class MSSQLQuery extends SS_Query {
 		$this->handle = $handle;
 		$this->mssql = $mssql;
 	}
-	
+
 	public function __destroy() {
 		if($this->mssql) {
 			mssql_free_result($this->handle);
@@ -1497,65 +1496,24 @@ class MSSQLQuery extends SS_Query {
 		if($this->mssql) {
 			return mssql_data_seek($this->handle, $row);
 		} else {
-			user_error("MSSQLQuery::seek() sqlserv doesn't support seek.", E_USER_WARNING);
+			user_error("MSSQLQuery::seek() sqlsrv doesn't support seek.", E_USER_WARNING);
 		}
 	}
-	
-	/**
-	 * If we're running the sqlsrv set of functions, then the dataobject set is a forward-only cursor
-	 * Therefore, we do not have access to the number of rows that this result contains
-	 * This is (usually) called from SS_Query::rewind(), which in turn seems to be called when a foreach...
-	 * is started on a recordset
-	 *
-	 * If you are using sqlsrv 1.0, this will just return a true or false based on whether you got
-	 * /ANY/ rows. UNLESS you set $this->forceNumRows to true, in which case, it will loop over the whole
-	 * rowset, cache it, and then do the count on that. This is probably resource intensive.
-	 * 
-	 * If you are using sqlsrv 1.1 or greater, then disregard the above, because sqlsrv_num_rows() was
-	 * added in version 1.1 of the driver.
-	 * 
-	 * @return boolean|int
-	 */
+
 	public function numRecords() {
 		if($this->mssql) {
 			return mssql_num_rows($this->handle);
 		} else {
-			if(function_exists('sqlsrv_num_rows')) {
-				return sqlsrv_num_rows($this->handle);
-			}
-			
-			// Setting forceNumRows to true will cache all records, but will
-			// be able to give a reliable number of results found.
-			if (isset($this->forceNumRows) && $this->forceNumRows) {
-				if (isset($this->numRecords)) return $this->numRecords;
-				
-				$this->cachedRecords = array();
-				
-				// We can't have nextRecord() return the row we just added =)
-				$this->cachingRows = true;
-						
-				foreach($this as $record) {
-					$this->cachedRecords[] = $record;
-				}
-				
-				$this->cachingRows = false;
-				
-				// Assign it to a var, otherwise the value will change when
-				// something is shifted off the beginning.
-				$this->numRecords = count($this->cachedRecords);
-				return $this->numRecords;
-			} else {
-				$this->cachedRecords = array($this->nextRecord());
-				return count($this->cachedRecords[0]) ? true : false;
-			}
+			return sqlsrv_num_rows($this->handle);
 		}
 	}
-	
+
 	public function nextRecord() {
 		// Coalesce rather than replace common fields.
+		$output = array();
+
 		if($this->mssql) {			
 			if($data = mssql_fetch_row($this->handle)) {
-				
 				foreach($data as $columnIdx => $value) {
 					$columnName = mssql_field_name($this->handle, $columnIdx);
 					// There are many places in the framework that expect the ID to be a string, not a double
@@ -1567,21 +1525,11 @@ class MSSQLQuery extends SS_Query {
 						$output[$columnName] = $value;
 					}
 				}
-				
+
 				return $output;
-			} else {
-				return false;
 			}
-			
 		} else {
-			// If we have cached rows (if numRecords as been called) and
-			// returning cached rows hasn't specifically been disabled,
-			// check for cached rows and return 'em.
-			if (isset($this->cachedRecords) && count($this->cachedRecords) && (!isset($this->cachingRows) || !$this->cachingRows)) {
-				return array_shift($this->cachedRecords);
-			}
 			if($this->handle && $data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_NUMERIC)) {
-				$output = array();
 				$fields = sqlsrv_field_metadata($this->handle);
 				foreach($fields as $columnIdx => $field) {
 					$value = $data[$columnIdx];
@@ -1593,18 +1541,18 @@ class MSSQLQuery extends SS_Query {
 						$output[$field['Name']] = $value;
 					}
 				}
+
 				return $output;
 			} else {
-				// Free the handle if there are no more results - sqlserv crashes if there are too many handles
+				// Free the handle if there are no more results - sqlsrv crashes if there are too many handles
 				if($this->handle) {
 					sqlsrv_free_stmt($this->handle);
-					$this->handle = false;
+					$this->handle = null;
 				}
-				
-				return false;
 			}
-			
 		}
+
+		return false;
 	}
-	
+
 }
