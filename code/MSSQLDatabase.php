@@ -1444,7 +1444,8 @@ class MSSQLDatabase extends SS_Database {
 		} else if(preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/i', $date)) {
 			$date = "'$date'";
 		}
-		return "LEFT(CONVERT(VARCHAR, DATEADD(" . $trans[strtolower($matches[2])] . ", " . (int)$matches[1] . ", $date), 120), 19)";
+
+		return "CONVERT(VARCHAR, DATEADD(" . $trans[strtolower($matches[2])] . ", " . (int)$matches[1] . ", $date), 120)";
 	}
 
 	/**
