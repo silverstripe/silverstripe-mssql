@@ -966,14 +966,7 @@ class MSSQLDatabase extends SS_Database {
 	public function year($values) {
 		return 'numeric(4)'; 
 	}
-	
-	function escape_character($escape=false){
-		if($escape)
-			return "\\\"";
-		else
-			return "\"";
-	}
-	
+
 	/**
 	 * This returns the column which is the primary key for each table
 	 * In Postgres, it is a SERIAL8, which is the equivalent of an auto_increment
@@ -981,7 +974,6 @@ class MSSQLDatabase extends SS_Database {
 	 * @return string
 	 */
 	function IdColumn($asDbValue=false, $hasAutoIncPK=true){
-		
 		if($asDbValue)
 			return 'bigint not null';
 		else {
