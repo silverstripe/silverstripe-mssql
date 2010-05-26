@@ -525,21 +525,6 @@ class MSSQLDatabase extends SS_Database {
 		return true;
 	}
 	
-	/**
-	 * Helper function used by checkAndRepairTable.
-	 * @param string $sql Query to run.
-	 * @return boolean Returns if the query returns a successful result.
-	 */
-	protected function runTableCheckCommand($sql) {
-		$testResults = $this->query($sql);
-		foreach($testResults as $testRecord) {
-			if(strtolower($testRecord['Msg_text']) != 'ok') {
-				return false;
-			}
-		}
-		return true;
-	}
-	
 	public function createField($tableName, $fieldName, $fieldSpec) {
 		$this->query("ALTER TABLE \"$tableName\" ADD \"$fieldName\" $fieldSpec");
 	}
