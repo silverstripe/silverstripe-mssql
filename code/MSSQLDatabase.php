@@ -2,17 +2,26 @@
 /**
  * Microsoft SQL Server 2008 connector class.
  * 
- * Connecting using Windows:
- * If you've got your website running on Windows, it's highly recommended you
- * use "sqlsrv", a SQL Server driver for PHP by Microsoft.
- * @see http://www.microsoft.com/downloads/details.aspx?displaylang=en&FamilyID=ccdf728b-1ea0-48a8-a84a-5052214caad9
+ * <h2>Connecting using Windows</h2>
  * 
- * Connecting using a UNIX platform:
- * On other platforms such as Mac OS X and Linux, you'll have to use FreeTDS.
- * PHP also needs to be built with mssql enabled. This is easy if you use XAMPP,
- * as it's already included.
- * If using MacPorts, you can use "port install php5-mssql" if you've already got
- * the php5 port installed.
+ * If you've got your website running on Windows, it's highly recommended you
+ * use Microsoft SQL Server Driver for PHP "sqlsrv".
+ * 
+ * @see http://sqlsrvphp.codeplex.com/
+ * 
+ * <h2>Connecting using Linux or Mac OS X</h2>
+ * 
+ * If you're using Ubuntu or Debian, you'll want to install the **php5-sybase**
+ * package, which includes the PHP mssql extension and FreeTDS.
+ * 
+ * @see http://freetds.org
+ * 
+ * Mac OS X has various third-party package managers, such as MacPorts or Fink.
+ * MacPorts has a package called **php5-mssql** you can use for the PHP mssql
+ * extension and FreeTDS.
+ * 
+ * More information available in the SilverStripe developer wiki:
+ * @see http://doc.silverstripe.org/modules:mssql
  * 
  * @package mssql
  */
