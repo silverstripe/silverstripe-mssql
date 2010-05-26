@@ -98,15 +98,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 		);
 	}
 
-	/**
-	 * Ensure that the SQL Server version is at least 10.00.2531 (SQL Server 2008 SP1).
-	 * @see http://www.sqlteam.com/article/sql-server-versions
-	 * @param array $databaseConfig Associative array of db configuration, e.g. "server", "username" etc
-	 * @return array Result - e.g. array('success' => true, 'error' => 'details of error')
-	 */
-	public function requireDatabaseVersion($databaseConfig) {
-		$success = false;
-		$error = '';
+	public function getDatabaseVersion($databaseConfig) {
 		$version = 0;
 
 		// Get the version using SERVERPROPERTY() function
@@ -126,6 +118,20 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper {
 		if($row && isset($row[0])) {
 			$version = trim($row[0]);
 		}
+
+		return $version;
+	}
+
+	/**
+	 * Ensure that the SQL Server version is at least 10.00.2531 (SQL Server 2008 SP1).
+	 * @see http://www.sqlteam.com/article/sql-server-versions
+	 * @param array $databaseConfig Associative array of db configuration, e.g. "server", "username" etc
+	 * @return array Result - e.g. array('success' => true, 'error' => 'details of error')
+	 */
+	public function requireDatabaseVersion($databaseConfig) {
+		$success = false;
+		$error = '';
+		$version = $this->getDatabaseVersion($databaseConfig);
 
 		if($version) {
 			$success = version_compare($version, '10.00.2531', '>=');
