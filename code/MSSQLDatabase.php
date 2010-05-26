@@ -188,12 +188,10 @@ class MSSQLDatabase extends SS_Database {
 	
 	/**
 	 * Get the version of MSSQL.
-	 * NOTE: not yet implemented for MSSQL, we just return 2008; the minimum supported version
-	 * @return float
+	 * @return string
 	 */
 	public function getVersion() {
-		user_error("getVersion not implemented", E_USER_WARNING);
-		return 2008;
+		return trim($this->query("SELECT CONVERT(char(15), SERVERPROPERTY('ProductVersion'))")->value());
 	}
 	
 	/**
