@@ -1,6 +1,6 @@
 <?php
 /**
- * Microsoft SQL Server 2008 connector class.
+ * Microsoft SQL Server 2008+ connector class.
  * 
  * <h2>Connecting using Windows</h2>
  * 
@@ -11,17 +11,26 @@
  * 
  * <h2>Connecting using Linux or Mac OS X</h2>
  * 
- * If you're using Ubuntu or Debian, you'll want to install the **php5-sybase**
- * package, which includes the PHP mssql extension and FreeTDS.
+ * The following commands assume you used the default package manager
+ * to install PHP with the operating system.
  * 
- * @see http://freetds.org
+ * Debian, and Ubuntu:
+ * <code>apt-get install php5-sybase</code>
+ *
+ * Fedora, CentOS and RedHat:
+ * <code>yum install php-mssql</code>
  * 
- * Mac OS X has various third-party package managers, such as MacPorts or Fink.
- * MacPorts has a package called **php5-mssql** you can use for the PHP mssql
- * extension and FreeTDS.
+ * Mac OS X (MacPorts):
+ * <code>port install php5-mssql</code>
+ * 
+ * These packages will install the mssql extension for PHP, as well
+ * as FreeTDS, which will let you connect to SQL Server from Linux.
  * 
  * More information available in the SilverStripe developer wiki:
  * @see http://doc.silverstripe.org/modules:mssql
+ * 
+ * References:
+ * @see http://freetds.org
  * 
  * @package mssql
  */
