@@ -24,7 +24,7 @@
  * <code>port install php5-mssql</code>
  * 
  * These packages will install the mssql extension for PHP, as well
- * as FreeTDS, which will let you connect to SQL Server from Linux.
+ * as FreeTDS, which will let you connect to SQL Server from Linux and Mac OS X.
  * 
  * More information available in the SilverStripe developer wiki:
  * @see http://doc.silverstripe.org/modules:mssql
