@@ -421,9 +421,17 @@ class MSSQLDatabase extends SS_Database {
 		$indexList = $this->indexList($tableName);
 		
 		if($newFields) foreach($newFields as $k => $v) $alterList[] .= "ALTER TABLE \"$tableName\" ADD \"$k\" $v";
-		if($alteredFields) foreach($alteredFields as $k => $v) {
-			$val = $this->alterTableAlterColumn($tableName, $k, $v, $indexList);
-			if($val != '') $alterList[] .= $val;
+
+		if($alteredFields) {
+			// fulltext indexes need to be dropped if alterting a table
+			if($this->fulltextIndexExists($tableName) === true) {
+				$alterList[] = "\nDROP FULLTEXT INDEX ON \"$tableName\";";
+			}
+
+			foreach($alteredFields as $k => $v) {
+				$val = $this->alterTableAlterColumn($tableName, $k, $v, $indexList);
+				if($val != '') $alterList[] .= $val;
+			}
 		}
 		
 		if($alteredIndexes) foreach($alteredIndexes as $k => $v) $alterList[] .= $this->getIndexSqlDefinition($tableName, $k, $v);
@@ -505,11 +513,6 @@ class MSSQLDatabase extends SS_Database {
 			$alterCol = "\nDROP INDEX \"$indexName\" ON \"$tableName\";";
 		}
 		
-		// fulltext indexes need to be dropped if alterting a table
-		if($this->fulltextIndexExists($tableName) === true) {
-			$alterCol .= "\nDROP FULLTEXT INDEX ON \"$tableName\";";
-		}
-
 		$prefix="ALTER TABLE \"" . $tableName . "\" ";
 
 		// Remove the old default prior to adjusting the column.
@@ -727,12 +730,7 @@ class MSSQLDatabase extends SS_Database {
 					
 					$primary_key=$this->getPrimaryKey($tableName);
 					
-					$drop = '';
-					if($this->fulltextIndexExists($tableName) === true) {
-						$drop = "DROP FULLTEXT INDEX ON \"$tableName\";";
-					}
-					
-					return $drop . "CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
+					return "CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
 				}
 			}
 			
