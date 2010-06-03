@@ -712,14 +712,18 @@ class MSSQLDatabase extends SS_Database {
 		return $indexSpec;
 	}
 	
+	/**
+	 * Return SQL for dropping and recreating an index
+	 */
 	protected function getIndexSqlDefinition($tableName, $indexName, $indexSpec) {
+		$index = 'ix_' . $tableName . '_' . $indexName;
+			$drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index') DROP INDEX $index ON \"" . $tableName . "\";";
+
 		if(!is_array($indexSpec)) {
 			$indexSpec=trim($indexSpec, '()');
 			$bits=explode(',', $indexSpec);
 			$indexes="\"" . implode("\",\"", $bits) . "\"";
-			$index = 'ix_' . $tableName . '_' . $indexName;
 			
-			$drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index') DROP INDEX $index ON \"" . $tableName . "\";";
 			return "$drop CREATE INDEX $index ON \"" . $tableName . "\" (" . $indexes . ");";
 		} else {
 			//create a type-specific index
@@ -735,7 +739,11 @@ class MSSQLDatabase extends SS_Database {
 			}
 			
 			if($indexSpec['type'] == 'unique') {
-				return 'CREATE UNIQUE INDEX ix_' . $tableName . '_' . $indexName . " ON \"" . $tableName . "\" (\"" . $indexSpec['value'] . "\");";
+				if(!is_array($indexSpec['value'])) $columns = preg_split('/ *, */', trim($indexSpec['value']));
+				else $columns = $indexSpec['value'];
+				$SQL_columnList = '"' . implode('", "', $columns) . '"';
+				
+				return "$drop CREATE UNIQUE INDEX $index ON \"" . $tableName . "\" ($SQL_columnList);";
 			}
 		}
 	}
