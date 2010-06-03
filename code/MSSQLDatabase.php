@@ -100,6 +100,8 @@ class MSSQLDatabase extends SS_Database {
 		}
 		
 		if($this->mssql) {
+			// Switch to utf8 connection charset
+			ini_set('mssql.charset', 'utf8');
 			$this->dbConn = mssql_connect($parameters['server'], $parameters['username'], $parameters['password'], true);
 		} else {
 			// Disable default warnings as errors behaviour for sqlsrv to keep it in line with mssql functions
@@ -114,6 +116,7 @@ class MSSQLDatabase extends SS_Database {
 				$connectionInfo = array(
 					'UID' => $parameters['username'],
 					'PWD' => $parameters['password'],
+					'CharacterSet' => 'utf8',
 				);
 			}
 			$this->dbConn = sqlsrv_connect($parameters['server'], $connectionInfo);
