@@ -83,6 +83,19 @@ class MSSQLDatabase extends SS_Database {
 	protected $fullTextEnabled = null;
 	
 	/**
+	 * @ignore
+	 */
+	protected static $collation = null;
+	
+	/**
+	 * Set the default collation of the MSSQL nvarchar fields that we create.
+	 * We don't apply this to the database as a whole, so that we can use unicode collations.
+	 */
+	public static function set_collation($collation) {
+		self::$collation = $collation;
+	}
+	
+	/**
 	 * Connect to a MS SQL database.
 	 * @param array $parameters An map of parameters, which should include:
 	 *  - server: The server, eg, localhost
@@ -577,7 +590,7 @@ class MSSQLDatabase extends SS_Database {
 	public function fieldList($table) {
 		//This gets us more information than we need, but I've included it all for the moment....
 		$fieldRecords = $this->query("SELECT ordinal_position, column_name, data_type, column_default, 
-			is_nullable, character_maximum_length, numeric_precision, numeric_scale
+			is_nullable, character_maximum_length, numeric_precision, numeric_scale, collation_name
 			FROM information_schema.columns WHERE table_name = '$table' 
 			ORDER BY ordinal_position;");
 
@@ -629,6 +642,7 @@ class MSSQLDatabase extends SS_Database {
 					}
 					break;
 				
+				case 'nvarchar':
 				case 'varchar':
 					//Check to see if there's a constraint attached to this column:
 					$constraint=$this->ColumnConstraints($table, $field['column_name']);
@@ -940,7 +954,8 @@ class MSSQLDatabase extends SS_Database {
 	 * @return string
 	 */
 	public function text($values) {
-		return 'nvarchar(max) null';
+		$collation = self::$collation ? "COLLATE " . self::$collation : "";
+		return "nvarchar(max) $collation null";
 	}
 	
 	/**
@@ -960,7 +975,8 @@ class MSSQLDatabase extends SS_Database {
 	 * @return string
 	 */
 	public function varchar($values) {
-		return 'nvarchar(' . $values['precision'] . ') null';
+		$collation = self::$collation ? "COLLATE " . self::$collation : "";
+		return "nvarchar(" . $values['precision'] . ") $collation null";
 	}
 	
 	/**
