@@ -254,7 +254,13 @@ class MSSQLDatabase extends SS_Database {
 			$handle = sqlsrv_query($this->dbConn, $sql);
 			if($handle) $this->lastAffectedRows = sqlsrv_rows_affected($handle);
 			if(function_exists('sqlsrv_errors')) {
-				$error = sqlsrv_errors();
+				$errInfo = sqlsrv_errors();
+				$error = '';
+				if($errInfo) {
+					foreach($errInfo as $info) {
+						$error .= implode(', ', array($info['SQLSTATE'], $info['code'], $info['message']));
+					}
+				}
 			}
 		}
 
