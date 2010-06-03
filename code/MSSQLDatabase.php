@@ -1013,7 +1013,9 @@ class MSSQLDatabase extends SS_Database {
 	 * @todo Make a proper implementation
 	 */
 	function hasTable($tableName) {
-		return true;
+		$SQL_tableName = Convert::raw2sql($tableName);
+		$value = DB::query("SELECT table_name FROM information_schema.tables WHERE table_name = '$SQL_tableName'")->value();
+		return (bool)$value;
 	}
 	
 	/**
