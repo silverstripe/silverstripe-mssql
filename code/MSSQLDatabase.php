@@ -785,42 +785,38 @@ class MSSQLDatabase extends SS_Database {
 	 * @return array
 	 */
 	public function indexList($table) {
-		$indexes=DB::query("EXEC sp_helpindex '$table';");
+		$indexes = DB::query("EXEC sp_helpindex '$table';");
 		$prefix = '';
 		$indexList = array();
-		
+
 		foreach($indexes as $index) {
-			
-			//Check for uniques:
-			if(strpos($index['index_description'], 'unique')!==false)
+			if(strpos($index['index_description'], 'unique') !== false) {
 				$prefix='unique ';
-			
-			$key=str_replace(', ', ',', $index['index_keys']);
-			$indexList[$key]['indexname']=$index['index_name'];
-			$indexList[$key]['spec']=$prefix . '(' . $key . ')';
-  		  			
-  		}
-  		
-  		//Now we need to check to see if we have any fulltext indexes attached to this table:
-		if($this->fullTextEnabled()) {
-	  		$result=DB::query('EXEC sp_help_fulltext_columns;');
-	  		$columns='';
-	  		foreach($result as $row){
-  			
-	  			if($row['TABLE_NAME']==$table)
-	  				$columns.=$row['FULLTEXT_COLUMN_NAME'] . ',';	
-  			
-	  		}
-  		
-	  		if($columns!=''){
-	  			$columns=trim($columns, ',');
-	  			$indexList['SearchFields']['indexname']='SearchFields';
-	  			$indexList['SearchFields']['spec']='fulltext (' . $columns . ')';
-	  		}
+			}
+
+			$key = str_replace(', ', ',', $index['index_keys']);
+			$indexList[$key]['indexname'] = $index['index_name'];
+			$indexList[$key]['spec'] = $prefix . '(' . $key . ')';
 		}
 
-  		return $indexList;
-		
+		// Now we need to check to see if we have any fulltext indexes attached to this table:
+		if($this->fullTextEnabled()) {
+			$result = DB::query('EXEC sp_help_fulltext_columns;');
+			$columns = '';
+			foreach($result as $row) {
+				if($row['TABLE_NAME'] == $table) {
+					$columns .= $row['FULLTEXT_COLUMN_NAME'] . ',';
+				}
+			}
+
+			if($columns!=''){
+				$columns=trim($columns, ',');
+				$indexList['SearchFields']['indexname'] = 'SearchFields';
+				$indexList['SearchFields']['spec'] = 'fulltext (' . $columns . ')';
+			}
+		}
+
+		return $indexList;
 	}
 
 	/**
