@@ -965,8 +965,8 @@ class MSSQLDatabase extends SS_Database {
 	 * @return string
 	 */
 	public function text($values) {
-		$collation = self::$collation ? "COLLATE " . self::$collation : "";
-		return "nvarchar(max) $collation null";
+		$collation = self::$collation ? " COLLATE " . self::$collation : "";
+		return "nvarchar(max)$collation null";
 	}
 	
 	/**
@@ -986,8 +986,8 @@ class MSSQLDatabase extends SS_Database {
 	 * @return string
 	 */
 	public function varchar($values) {
-		$collation = self::$collation ? "COLLATE " . self::$collation : "";
-		return "nvarchar(" . $values['precision'] . ") $collation null";
+		$collation = self::$collation ? " COLLATE " . self::$collation : "";
+		return "nvarchar(" . $values['precision'] . ")$collation null";
 	}
 	
 	/**
