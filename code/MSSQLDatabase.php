@@ -722,7 +722,7 @@ class MSSQLDatabase extends SS_Database {
 	 */
 	protected function getIndexSqlDefinition($tableName, $indexName, $indexSpec) {
 		$index = 'ix_' . $tableName . '_' . $indexName;
-			$drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index') DROP INDEX $index ON \"" . $tableName . "\";";
+		$drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index') DROP INDEX $index ON \"" . $tableName . "\";";
 
 		if(!is_array($indexSpec)) {
 			$indexSpec=trim($indexSpec, '()');
@@ -736,10 +736,14 @@ class MSSQLDatabase extends SS_Database {
 				if($this->fullTextEnabled()) {
 					//Enable full text search.
 					$this->createFullTextCatalog();
+					$primary_key = $this->getPrimaryKey($tableName);
 					
-					$primary_key=$this->getPrimaryKey($tableName);
-					
-					return "CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
+					$query = '';
+					if($this->fullTextIndexExists($tableName)) {
+						$query .= "\nDROP FULLTEXT INDEX ON \"$tableName\";";
+					}
+					$query .= "CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
+					return $query;
 				}
 			}
 			
