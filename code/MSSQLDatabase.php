@@ -1194,7 +1194,7 @@ class MSSQLDatabase extends SS_Database {
 		$keywordList = explode(' ', $keywords);
 		if($keywordList) {
 			foreach($keywordList as $index => $keyword) {
-				$keywordList[$index] = "\"{$keyword}\"";
+				$keywordList[$index] = "'{$keyword}'";
 			}
 			$keywords = implode(' AND ', $keywordList);
 		}
@@ -1202,7 +1202,7 @@ class MSSQLDatabase extends SS_Database {
 		$htmlEntityKeywordList = explode(' ', $htmlEntityKeywords);
 		if($htmlEntityKeywordList) {
 			foreach($htmlEntityKeywordList as $index => $keyword) {
-				$htmlEntityKeywordList[$index] = "\"{$keyword}\"";
+				$htmlEntityKeywordList[$index] = "'{$keyword}'";
 			}
 			$htmlEntityKeywords = implode(' AND ', $htmlEntityKeywordList);
 		}
@@ -1214,7 +1214,7 @@ class MSSQLDatabase extends SS_Database {
 		foreach($result as $row){
 			if(substr($row['TABLE_NAME'], -5)!='_Live' && substr($row['TABLE_NAME'], -9)!='_versions') {
 				$thisSql = "SELECT ID, '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE (".
-						"(CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", '$keywords') OR CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", '$htmlEntityKeywords'))";
+						"(CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", $keywords) OR CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", $htmlEntityKeywords))";
 				if(strpos($row['TABLE_NAME'], 'SiteTree') === 0) {
 					$thisSql .= " AND ShowInSearch != 0)";//" OR (Title LIKE '%$keywords%' OR Title LIKE '%$htmlEntityKeywords%')";
 				} else {
