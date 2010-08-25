@@ -1188,24 +1188,17 @@ class MSSQLDatabase extends SS_Database {
 			return $results;
 		}
 		
-		$keywords = Convert::raw2sql(trim($keywords));
-		$htmlEntityKeywords = htmlentities($keywords);
-		
-		$keywordList = explode(' ', $keywords);
-		if($keywordList) {
-			foreach($keywordList as $index => $keyword) {
-				$keywordList[$index] = "'{$keyword}'";
-			}
-			$keywords = implode(' AND ', $keywordList);
+		// Strip unfriendly characters, SQLServer "CONTAINS" predicate will crash on & and | and ignore others anyway.
+		if (function_exists('mb_ereg_replace')) {
+			$keywords = mb_ereg_replace('[^\w\s]', '', trim($keywords));
+		}
+		else {
+			$keywords = str_replace(array('&','|','!'), '', Convert::raw2sql(trim($keywords)));
 		}
 		
-		$htmlEntityKeywordList = explode(' ', $htmlEntityKeywords);
-		if($htmlEntityKeywordList) {
-			foreach($htmlEntityKeywordList as $index => $keyword) {
-				$htmlEntityKeywordList[$index] = "'{$keyword}'";
-			}
-			$htmlEntityKeywords = implode(' AND ', $htmlEntityKeywordList);
-		}
+		// Concat with ANDs
+		$keywords = explode(' ', $keywords);
+		$keywords = implode(' AND ', $keywords);
 		
 		//Get a list of all the tables and columns we'll be searching on:
 		$result = DB::query('EXEC sp_help_fulltext_columns');
@@ -1213,8 +1206,8 @@ class MSSQLDatabase extends SS_Database {
 		
 		foreach($result as $row){
 			if(substr($row['TABLE_NAME'], -5)!='_Live' && substr($row['TABLE_NAME'], -9)!='_versions') {
-				$thisSql = "SELECT ID, '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE (".
-						"(CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", $keywords) OR CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", $htmlEntityKeywords))";
+				$thisSql = "SELECT \"ID\", '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE (".
+						"CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", '$keywords')";
 				if(strpos($row['TABLE_NAME'], 'SiteTree') === 0) {
 					$thisSql .= " AND ShowInSearch != 0)";//" OR (Title LIKE '%$keywords%' OR Title LIKE '%$htmlEntityKeywords%')";
 				} else {
