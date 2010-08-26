@@ -206,6 +206,32 @@ class MSSQLDatabase extends SS_Database {
 	}
 	
 	/**
+	 * Sleep until the catalog has been fully rebuilt. This is a busy wait designed for situations
+	 * when you need to be sure the index is up to date - for example in unit tests.
+	 * TODO: add a wrapper to DB, so we don't need to check if this function exists every time
+	 * before we call it from the user code?
+	 *
+	 * @param int $maxWaitingTime Time in seconds to wait for the database.
+	 */
+	function waitUntilIndexingFinished($maxWaitingTime = 15) {
+		if($this->fullTextEnabled()) {
+			$this->query("EXEC sp_fulltext_catalog 'ftCatalog', 'Rebuild';");
+			
+			// Busy wait until it's done updating, but no longer than 15 seconds.
+			$start = time();
+			while(time()-$start<$maxWaitingTime) {
+				$status = $this->query("EXEC sp_help_fulltext_catalogs 'ftCatalog';")->first();
+				
+				if (isset($status['STATUS']) && $status['STATUS']==0) {
+					// Idle!
+					break;
+				}
+				sleep(1);
+			}
+		}
+	}
+	
+	/**
 	 * Not implemented, needed for PDO
 	 */
 	public function getConnect($parameters) {
@@ -1193,7 +1219,7 @@ class MSSQLDatabase extends SS_Database {
 			$keywords = mb_ereg_replace('[^\w\s]', '', trim($keywords));
 		}
 		else {
-			$keywords = str_replace(array('&','|','!'), '', Convert::raw2sql(trim($keywords)));
+			$keywords = Convert::raw2sql(str_replace(array('&','|','!','"','\''), '', trim($keywords)));
 		}
 		
 		// Concat with ANDs
