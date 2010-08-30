@@ -7,6 +7,9 @@
  * If you've got your website running on Windows, it's highly recommended you
  * use Microsoft SQL Server Driver for PHP "sqlsrv".
  * 
+ * A complete guide to installing a Windows IIS + PHP + SQL Server web stack can be
+ * found here: http://doc.silverstripe.org/installation-on-windows-server-manual-iis
+ * 
  * @see http://sqlsrvphp.codeplex.com/
  * 
  * <h2>Connecting using Linux or Mac OS X</h2>
@@ -24,10 +27,11 @@
  * <code>port install php5-mssql</code>
  * 
  * These packages will install the mssql extension for PHP, as well
- * as FreeTDS, which will let you connect to SQL Server from Linux and Mac OS X.
+ * as FreeTDS, which will let you connect to SQL Server.
  * 
  * More information available in the SilverStripe developer wiki:
  * @see http://doc.silverstripe.org/modules:mssql
+ * @see http://doc.silverstripe.org/installation-on-windows-server-manual-iis
  * 
  * References:
  * @see http://freetds.org
