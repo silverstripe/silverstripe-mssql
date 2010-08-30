@@ -130,14 +130,14 @@ class MSSQLDatabase extends SS_Database {
 			if(defined('MSSQL_USE_WINDOWS_AUTHENTICATION') && MSSQL_USE_WINDOWS_AUTHENTICATION == true) {
 				$connectionInfo = array(
 					'CharacterSet' => 'UTF-8',
-					'MultipleActiveResultSets' => false
+					'MultipleActiveResultSets' => true
 				);
 			} else {
 				$connectionInfo = array(
 					'UID' => $parameters['username'],
 					'PWD' => $parameters['password'],
 					'CharacterSet' => 'UTF-8',
-					'MultipleActiveResultSets' => false
+					'MultipleActiveResultSets' => true
 				);
 			}
 			$this->dbConn = sqlsrv_connect($parameters['server'], $connectionInfo);
