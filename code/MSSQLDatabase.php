@@ -124,7 +124,10 @@ class MSSQLDatabase extends SS_Database {
 
 			// Windows authentication doesn't require a username and password
 			if(defined('MSSQL_USE_WINDOWS_AUTHENTICATION') && MSSQL_USE_WINDOWS_AUTHENTICATION == true) {
-				$connectionInfo = array();
+				$connectionInfo = array(
+					'CharacterSet' => 'UTF-8',
+					'MultipleActiveResultSets' => false
+				);
 			} else {
 				$connectionInfo = array(
 					'UID' => $parameters['username'],
