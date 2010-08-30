@@ -130,6 +130,7 @@ class MSSQLDatabase extends SS_Database {
 					'UID' => $parameters['username'],
 					'PWD' => $parameters['password'],
 					'CharacterSet' => 'UTF-8',
+					'MultipleActiveResultSets' => false
 				);
 			}
 			$this->dbConn = sqlsrv_connect($parameters['server'], $connectionInfo);
