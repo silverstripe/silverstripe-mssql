@@ -147,7 +147,7 @@ class MSSQLDatabase extends SS_Database {
 					'CharacterSet' => 'UTF-8',
 					'MultipleActiveResultSets' => true
 				);
-			}
+			}			
 			$this->dbConn = sqlsrv_connect($parameters['server'], $connectionInfo);
 		}
 
@@ -225,8 +225,9 @@ class MSSQLDatabase extends SS_Database {
 	/**
 	 * Sleep until the catalog has been fully rebuilt. This is a busy wait designed for situations
 	 * when you need to be sure the index is up to date - for example in unit tests.
-	 * TODO: add a wrapper to DB, so we don't need to check if this function exists every time
-	 * before we call it from the user code?
+	 *
+	 * TODO: move this to Database class? Can we assume this will be useful for all databases?
+	 * Also see the wrapper functions "waitUntilIndexingFinished" in SearchFormTest and TranslatableSearchFormTest
 	 *
 	 * @param int $maxWaitingTime Time in seconds to wait for the database.
 	 */
@@ -1231,39 +1232,52 @@ class MSSQLDatabase extends SS_Database {
 			return $results;
 		}
 		
-		// Strip unfriendly characters, SQLServer "CONTAINS" predicate will crash on & and | and ignore others anyway.
-		if (function_exists('mb_ereg_replace')) {
-			$keywords = mb_ereg_replace('[^\w\s]', '', trim($keywords));
-		}
-		else {
-			$keywords = Convert::raw2sql(str_replace(array('&','|','!','"','\''), '', trim($keywords)));
-		}
-		
-		// Concat with ANDs
-		$keywords = explode(' ', $keywords);
-		$keywords = implode(' AND ', $keywords);
-		
 		//Get a list of all the tables and columns we'll be searching on:
-		$result = DB::query('EXEC sp_help_fulltext_columns');
+		$fulltextColumns = DB::query('EXEC sp_help_fulltext_columns');
+		$queries = array();
+
+		// Sort the columns back into tables.
 		$tables = array();
-		
-		foreach($result as $row){
-			if(substr($row['TABLE_NAME'], -5)!='_Live' && substr($row['TABLE_NAME'], -9)!='_versions') {
-				$thisSql = "SELECT \"ID\", '{$row['TABLE_NAME']}' AS Source FROM \"{$row['TABLE_NAME']}\" WHERE (".
-						"CONTAINS(\"{$row['FULLTEXT_COLUMN_NAME']}\", '$keywords')";
-				if(strpos($row['TABLE_NAME'], 'SiteTree') === 0) {
-					$thisSql .= " AND ShowInSearch != 0)";//" OR (Title LIKE '%$keywords%' OR Title LIKE '%$htmlEntityKeywords%')";
-				} else {
-					$thisSql .= ')';
-				}
-				
-				$tables[] = $thisSql;
-			}
+		foreach($fulltextColumns as $column) {
+			// Skip extension tables.
+			if(substr($column['TABLE_NAME'], -5)=='_Live' || substr($column['TABLE_NAME'], -9)=='_versions') continue;
+
+			// Add the column to table.
+			$table = &$tables[$column['TABLE_NAME']];
+			if (!$table) $table = array($column['FULLTEXT_COLUMN_NAME']);
+			else array_push($table, $column['FULLTEXT_COLUMN_NAME']);
 		}
 
-		$query = implode(' UNION ', $tables);
-		$result = DB::query($query);
+		// Create one query per each table, columns not used.
+		foreach($tables as $tableName=>$columns){
+			$join = $this->fullTextSearchMSSQL($tableName, $keywords);
 
+			// Check if we need to add ShowInSearch
+			$where = null;
+			if(strpos($tableName, 'SiteTree') === 0) {
+				$where = array("\"$tableName\".\"ShowInSearch\"!=0");
+			}
+
+			// Join with CONTAINSTABLE, a full text searcher that includes relevance factor
+			$queries[$tableName] = singleton($tableName)->extendedSQL($where);
+			$queries[$tableName]->from = array("\"$tableName\" INNER JOIN $join AS \"ft\" ON \"$tableName\".\"ID\"=\"ft\".\"KEY\"");
+			$queries[$tableName]->select = array("\"$tableName\".\"ID\"", "'$tableName' AS Source", "\"Rank\" AS \"Relevance\"");
+			$queries[$tableName]->orderby = null;
+		}
+
+		// Generate SQL and count totals
+		$querySQLs = array();
+		foreach($queries as $query) {
+			$querySQLs[] = $query->sql();
+		}
+
+		// Unite the SQL
+		$fullQuery = implode(" UNION ", $querySQLs) . " ORDER BY $sortBy";
+
+		// Perform the search
+		$result = DB::query($fullQuery);
+
+		// Regenerate the DataObjects, apply security
 		$totalCount = 0;
 		foreach($result as $row) {
 			$record = DataObject::get_by_id($row['Source'], $row['ID']);
@@ -1304,34 +1318,48 @@ class MSSQLDatabase extends SS_Database {
 
 	/**
 	 * Returns a SQL fragment for querying a fulltext search index
-	 * @param $fields array The list of field names to search on
+	 *
+	 * @param $tableName specific - table name
 	 * @param $keywords string The search query
-	 * @param $booleanSearch A MySQL-specific flag to switch to boolean search
+	 * @param $fields array The list of field names to search on, or null to include all
 	 */
-	function fullTextSearchSQL($fields, $keywords, $booleanSearch = false) {
-		$fieldNames = '"' . implode('", "', $fields) . '"';
+	function fullTextSearchMSSQL($tableName, $keywords, $fields = null) {
+		// Make sure we are getting an array of fields
+		if (isset($fields) && !is_array($fields)) $fields = array($fields);
 
-	 	$SQL_keywords = Convert::raw2sql($keywords);
+		// Strip unfriendly characters, SQLServer "CONTAINS" predicate will crash on & and | and ignore others anyway.
+		if (function_exists('mb_ereg_replace')) {
+			$keywords = mb_ereg_replace('[^\w\s]', '', trim($keywords));
+		}
+		else {
+			$keywords = Convert::raw2sql(str_replace(array('&','|','!','"','\''), '', trim($keywords)));
+		}
+		
+		// Remove stopwords, concat with ANDs
+		$keywords = explode(' ', $keywords);
+		$keywords = self::removeStopwords($keywords);
+		$keywords = implode(' AND ', $keywords);
 
-		return "FREETEXT (($fieldNames), '$SQL_keywords')";
+		if ($fields) $fieldNames = '"' . implode('", "', $fields) . '"';
+		else $fieldNames = "*";
+
+		return "FREETEXTTABLE(\"$tableName\", ($fieldNames), '$keywords')";
 	}
 	
 	/**
-	 * Remove noise words that would kill a MSSQL full-text query
+	 * Remove stopwords that would kill a MSSQL full-text query
 	 *
-	 * @param string $keywords 
-	 * @return string $keywords with noise words removed
-	 * @author Tom Rix
+	 * @param array $keywords 
+	 *
+	 * @return array $keywords with stopwords removed
 	 */
-	static public function removeNoiseWords($keywords) {
-		$goodWords = array();
-		foreach (explode(' ', $keywords) as $word) {
-			// @todo we may want to remove +'s -'s etc too
-			if (!in_array($word, self::$noiseWords)) {
-				$goodWords[] = $word;
-			}
+	static public function removeStopwords($keywords) {
+		$goodKeywords = array();
+		foreach($keywords as $keyword) {
+			if (in_array($keyword, self::$noiseWords)) continue;
+			$goodKeywords[] = trim($keyword);
 		}
-		return join(' ', $goodWords);
+		return $goodKeywords;
 	}
 	
 	/*
