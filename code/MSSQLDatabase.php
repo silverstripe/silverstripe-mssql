@@ -75,8 +75,16 @@ class MSSQLDatabase extends SS_Database {
 	 * Words that will trigger an error if passed to a SQL Server fulltext search
 	 */
 	public static $noiseWords = array("about", "1", "after", "2", "all", "also", "3", "an", "4", "and", "5", "another", "6", "any", "7", "are", "8", "as", "9", "at", "0", "be", "$", "because", "been", "before", "being", "between", "both", "but", "by", "came", "can", "come", "could", "did", "do", "does", "each", "else", "for", "from", "get", "got", "has", "had", "he", "have", "her", "here", "him", "himself", "his", "how", "if", "in", "into", "is", "it", "its", "just", "like", "make", "many", "me", "might", "more", "most", "much", "must", "my", "never", "no", "now", "of", "on", "only", "or", "other", "our", "out", "over", "re", "said", "same", "see", "should", "since", "so", "some", "still", "such", "take", "than", "that", "the", "their", "them", "then", "there", "these", "they", "this", "those", "through", "to", "too", "under", "up", "use", "very", "want", "was", "way", "we", "well", "were", "what", "when", "where", "which", "while", "who", "will", "with", "would", "you", "your", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z");
-	
-	protected $supportsTransactions = true;
+
+	/**
+	 * Transactions will work with FreeTDS, but not entirely with sqlsrv driver on Windows with MARS enabled.
+	 * TODO:
+	 * - after the test fails with open transaction, the transaction should be rolled back, 
+	 *   otherwise other tests will break claiming that transaction is still open.
+	 * - figure out SAVEPOINTS
+	 * - READ ONLY transactions
+	 */
+	protected $supportsTransactions = false;
 	
 	/**
 	 * Cached flag to determine if full-text is enabled. This is set by
@@ -191,7 +199,8 @@ class MSSQLDatabase extends SS_Database {
 	function databaseError($message, $errorLevel = E_USER_ERROR) {
 		if(!$this->mssql) {
 			$errorMessages = array();
-			foreach(sqlsrv_errors() as $error) {
+			$errors = sqlsrv_errors();
+			if ($errors) foreach($errors as $error) {
 				$errorMessages[] = $error['message'];
 			}
 			$message .= ": \n" . implode("; ",$errorMessages);
@@ -1348,18 +1357,31 @@ class MSSQLDatabase extends SS_Database {
 	}
 	
 	/*
-	 * Start a prepared transaction
-	 * See http://developer.postgresql.org/pgdocs/postgres/sql-set-transaction.html for details on transaction isolation options
+	 * Start transaction. READ ONLY not supported.
 	 */
 	public function startTransaction($transaction_mode=false, $session_characteristics=false){
-		DB::query('BEGIN TRANSACTION');
+		if($this->mssql) {
+			DB::query('BEGIN TRANSACTION');
+		} else {
+			$result = sqlsrv_begin_transaction($this->dbConn);
+			if (!$result) $this->databaseError("Couldn't start the transaction.", E_USER_ERROR);
+		}
 	}
 	
 	/*
 	 * Create a savepoint that you can jump back to if you encounter problems
 	 */
 	public function transactionSavepoint($savepoint){
-		DB::query("SAVE TRANSACTION \"$savepoint\"");
+		// The savepoints seem to work on FreeTDS, but throw error anyway to avoid 
+		// nasty surprises upon deployment from LAMP to Windows.
+		$this->databaseError("Savepoints currently not supported.", E_USER_ERROR);
+		return;
+	
+		if($this->mssql) {
+			DB::query("SAVE TRANSACTION \"$savepoint\"");
+		} else {
+			$this->databaseError("Savepoints currently not supported.", E_USER_ERROR);
+		}
 	}
 	
 	/*
@@ -1368,11 +1390,24 @@ class MSSQLDatabase extends SS_Database {
 	 * need to rollback that particular query, or return to a savepoint
 	 */
 	public function transactionRollback($savepoint=false){
-
 		if($savepoint) {
-			DB::query("ROLLBACK TRANSACTION \"$savepoint\"");
+			// The savepoints seem to work on FreeTDS, but throw error anyway to avoid 
+			// nasty surprises upon deployment from LAMP to Windows.
+			$this->databaseError("Savepoints currently not supported.", E_USER_ERROR);
+			return;
+		
+			if($this->mssql) {
+				DB::query("ROLLBACK TRANSACTION \"$savepoint\"");
+			} else {
+				$this->databaseError("Savepoints currently not supported.", E_USER_ERROR);
+			}
 		} else {
-			DB::query('ROLLBACK TRANSACTION');
+			if($this->mssql) {
+				DB::query('ROLLBACK TRANSACTION');
+			} else {
+				$result = sqlsrv_rollback($this->dbConn);
+				if (!$result) $this->databaseError("Couldn't rollback the transaction.", E_USER_ERROR);
+			}
 		}
 	}
 	
@@ -1380,7 +1415,12 @@ class MSSQLDatabase extends SS_Database {
 	 * Commit everything inside this transaction so far
 	 */
 	public function endTransaction(){
-		DB::query('COMMIT TRANSACTION');
+		if($this->mssql) {
+			DB::query('COMMIT TRANSACTION');
+		} else {
+			$result = sqlsrv_commit($this->dbConn);
+			if (!$result) $this->databaseError("Couldn't commit the transaction.", E_USER_ERROR);
+		}
 	}
 
 	/**
