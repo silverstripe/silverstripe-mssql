@@ -1251,6 +1251,7 @@ class MSSQLDatabase extends SS_Database {
 		// Create one query per each table, columns not used.
 		foreach($tables as $tableName=>$columns){
 			$join = $this->fullTextSearchMSSQL($tableName, $keywords);
+			if (!$join) return new DataObjectSet(); // avoid "Null or empty full-text predicate"
 
 			// Check if we need to add ShowInSearch
 			$where = null;
@@ -1322,6 +1323,8 @@ class MSSQLDatabase extends SS_Database {
 	 * @param $tableName specific - table name
 	 * @param $keywords string The search query
 	 * @param $fields array The list of field names to search on, or null to include all
+	 *
+	 * @returns null if keyword set is empty or the string with JOIN clause to be added to SQL query
 	 */
 	function fullTextSearchMSSQL($tableName, $keywords, $fields = null) {
 		// Make sure we are getting an array of fields
@@ -1339,6 +1342,8 @@ class MSSQLDatabase extends SS_Database {
 		$keywords = explode(' ', $keywords);
 		$keywords = self::removeStopwords($keywords);
 		$keywords = implode(' AND ', $keywords);
+
+		if (!$keywords || trim($keywords)=='') return null;
 
 		if ($fields) $fieldNames = '"' . implode('", "', $fields) . '"';
 		else $fieldNames = "*";
