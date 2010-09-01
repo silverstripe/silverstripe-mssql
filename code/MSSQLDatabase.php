@@ -1277,21 +1277,18 @@ class MSSQLDatabase extends SS_Database {
 		// Perform the search
 		$result = DB::query($fullQuery);
 
-		// Regenerate DataObjectSet
-		$totalCount = $result->numRecords();
+		// Regenerate DataObjectSet - watch out, numRecords doesn't work on sqlsrv driver on Windows.
 		$current = -1;
 		$results = new DataObjectSet();
 		foreach ($result as $row) {
 			$current++;
 
 			// Select a subset for paging
-			if ($current>=$start+$pageLength) break;
-			if ($current<$start) continue;
-
-			$results->push(DataObject::get_by_id($row['Source'], $row['ID']));
+			if ($current>=$start && $current<$start+$pageLength) {
+				$results->push(DataObject::get_by_id($row['Source'], $row['ID']));
+			}
 		}
-		
-		$results->setPageLimits($start, $pageLength, $totalCount);
+		$results->setPageLimits($start, $pageLength, $current+1);
 
 		return $results;
 	}
@@ -1644,6 +1641,8 @@ class MSSQLQuery extends SS_Query {
 			// WARNING: This will only work if the cursor type is NOT forward only!
 			if(function_exists('sqlsrv_num_rows')) {
 				return sqlsrv_num_rows($this->handle);
+			} else {
+				user_error("MSSQLQuery::numRecords() not supported on this version of sqlsrv.", E_USER_WARNING);
 			}
 		}
 	}
