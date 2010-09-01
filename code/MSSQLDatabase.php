@@ -1228,9 +1228,8 @@ class MSSQLDatabase extends SS_Database {
 	 */
 	public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
 		$results = new DataObjectSet();
-		if(!$this->fullTextEnabled()) {
-			return $results;
-		}
+		if(!$this->fullTextEnabled()) return $results;
+		if (substr($sortBy, 0, 9)!='Relevance') user_error("Non-relevance sort not supported.", E_USER_ERROR);
 		
 		//Get a list of all the tables and columns we'll be searching on:
 		$fulltextColumns = DB::query('EXEC sp_help_fulltext_columns');
@@ -1266,7 +1265,7 @@ class MSSQLDatabase extends SS_Database {
 			$queries[$tableName]->orderby = null;
 		}
 
-		// Generate SQL and count totals
+		// Generate SQL
 		$querySQLs = array();
 		foreach($queries as $query) {
 			$querySQLs[] = $query->sql();
@@ -1278,16 +1277,20 @@ class MSSQLDatabase extends SS_Database {
 		// Perform the search
 		$result = DB::query($fullQuery);
 
-		// Regenerate the DataObjects, apply security
-		$totalCount = 0;
-		foreach($result as $row) {
-			$record = DataObject::get_by_id($row['Source'], $row['ID']);
-			if($record->canView()) {
-				$results->push($record);
-				$totalCount++;
-			}
-		}
+		// Regenerate DataObjectSet
+		$totalCount = $result->numRecords();
+		$current = -1;
+		$results = new DataObjectSet();
+		foreach ($result as $row) {
+			$current++;
 
+			// Select a subset for paging
+			if ($current>=$start+$pageLength) break;
+			if ($current<$start) continue;
+
+			$results->push(DataObject::get_by_id($row['Source'], $row['ID']));
+		}
+		
 		$results->setPageLimits($start, $pageLength, $totalCount);
 
 		return $results;
