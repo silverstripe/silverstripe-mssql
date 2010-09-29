@@ -1474,7 +1474,9 @@ class MSSQLDatabase extends SS_Database {
 			$date = "'$date.000'";
 		}
 
-		if($format == '%U') return "DATEDIFF(s, '19700101 12:00:00:000', $date)";
+		if($format == '%U') {
+			return "DATEDIFF(s, '1970-01-01 00:00:00', DATEADD(hour, DATEDIFF(hour, GETDATE(), GETUTCDATE()), $date))";
+		}
 
 		$trans = array(
 			'Y' => 'yy',
