@@ -123,7 +123,7 @@ class MSSQLDatabase extends SS_Database {
 		} else {
 			user_error("Neither the mssql_connect() nor the sqlsrv_connect() functions are available.  Please install the PHP native mssql module, or the Microsoft-provided sqlsrv module.", E_USER_ERROR);
 		}
-		
+
 		if($this->mssql) {
 			// Switch to utf8 connection charset
 			ini_set('mssql.charset', 'utf8');
@@ -134,26 +134,20 @@ class MSSQLDatabase extends SS_Database {
 				ini_set('sqlsrv.WarningsReturnAsErrors', 'Off');
 			}
 
-			// Windows authentication doesn't require a username and password
-			if(defined('MSSQL_USE_WINDOWS_AUTHENTICATION') && MSSQL_USE_WINDOWS_AUTHENTICATION == true) {
-				$connectionInfo = array(
-					'CharacterSet' => 'UTF-8',
-					'MultipleActiveResultSets' => true
-				);
-			} else {
-				$connectionInfo = array(
-					'UID' => $parameters['username'],
-					'PWD' => $parameters['password'],
-					'CharacterSet' => 'UTF-8',
-					'MultipleActiveResultSets' => true
-				);
-			}			
-			$this->dbConn = sqlsrv_connect($parameters['server'], $connectionInfo);
+			$options = array(
+				'CharacterSet' => 'UTF-8',
+				'MultipleActiveResultSets' => true
+			);
+			if(!(defined('MSSQL_USE_WINDOWS_AUTHENTICATION') && MSSQL_USE_WINDOWS_AUTHENTICATION == true)) {
+				$options['UID'] = $parameters['username'];
+				$options['PWD'] = $parameters['password'];
+			}
+
+			$this->dbConn = sqlsrv_connect($parameters['server'], $options);
 		}
 
 		if(!$this->dbConn) {
-			$this->databaseError("Couldn't connect to MS SQL database");
-
+			$this->databaseError('Couldn\'t connect to SQL Server database');
 		} else {
 			$this->database = $parameters['database'];
 			$this->selectDatabase($this->database);
