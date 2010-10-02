@@ -84,7 +84,7 @@ class MSSQLDatabase extends SS_Database {
 	 * - figure out SAVEPOINTS
 	 * - READ ONLY transactions
 	 */
-	protected $supportsTransactions = false;
+	protected $supportsTransactions = true;
 	
 	/**
 	 * Cached flag to determine if full-text is enabled. This is set by
@@ -1361,14 +1361,14 @@ class MSSQLDatabase extends SS_Database {
 		return $goodKeywords;
 	}
 	
-	/*
+	/**
 	 * Does this database support transactions?
 	 */
 	public function supportsTransactions(){
 		return $this->supportsTransactions;
 	}
 	
-	/*
+	/**
 	 * This is a quick lookup to discover if the database supports particular extensions
 	 * Currently, MSSQL supports no extensions
 	 */
@@ -1383,7 +1383,7 @@ class MSSQLDatabase extends SS_Database {
 			return false;
 	}
 	
-	/*
+	/**
 	 * Start transaction. READ ONLY not supported.
 	 */
 	public function startTransaction($transaction_mode=false, $session_characteristics=false){
@@ -1395,39 +1395,21 @@ class MSSQLDatabase extends SS_Database {
 		}
 	}
 	
-	/*
+	/**
 	 * Create a savepoint that you can jump back to if you encounter problems
 	 */
 	public function transactionSavepoint($savepoint){
-		// The savepoints seem to work on FreeTDS, but throw error anyway to avoid 
-		// nasty surprises upon deployment from LAMP to Windows.
-		$this->databaseError("Savepoints currently not supported.", E_USER_ERROR);
-		return;
-	
-		if($this->mssql) {
-			DB::query("SAVE TRANSACTION \"$savepoint\"");
-		} else {
-			$this->databaseError("Savepoints currently not supported.", E_USER_ERROR);
-		}
+		DB::query("SAVE TRANSACTION \"$savepoint\"");
 	}
 	
-	/*
+	/**
 	 * Rollback or revert to a savepoint if your queries encounter problems
 	 * If you encounter a problem at any point during a transaction, you may
 	 * need to rollback that particular query, or return to a savepoint
 	 */
 	public function transactionRollback($savepoint=false){
 		if($savepoint) {
-			// The savepoints seem to work on FreeTDS, but throw error anyway to avoid 
-			// nasty surprises upon deployment from LAMP to Windows.
-			$this->databaseError("Savepoints currently not supported.", E_USER_ERROR);
-			return;
-		
-			if($this->mssql) {
-				DB::query("ROLLBACK TRANSACTION \"$savepoint\"");
-			} else {
-				$this->databaseError("Savepoints currently not supported.", E_USER_ERROR);
-			}
+			DB::query("ROLLBACK TRANSACTION \"$savepoint\"");
 		} else {
 			if($this->mssql) {
 				DB::query('ROLLBACK TRANSACTION');
@@ -1438,7 +1420,7 @@ class MSSQLDatabase extends SS_Database {
 		}
 	}
 	
-	/*
+	/**
 	 * Commit everything inside this transaction so far
 	 */
 	public function endTransaction(){
