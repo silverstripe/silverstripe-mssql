@@ -777,55 +777,10 @@ class MSSQLDatabase extends SS_Database {
 					$primary_key = $this->getPrimaryKey($tableName);
 					
 					$query = '';
-					
-					//If we have specified a parent table through the column, then change the table name.
-					//The value may be comma-separated, so we need to split it and look for tables on each part
-					$value_bits=explode(',', $indexSpec['value']);
-					//$table_lookup=array();
-					$parent_tables=array();
-					foreach($value_bits as $value_bit){
-						$table_columns=explode('.', $value_bit);
-						//If we've got tables here, then build the query slightly differently:
-						if(sizeof($table_columns>1)){
-							//We have specified a different table.
-							//Add this to the list of new indexes we need to create
-							$parent_tables[$table_columns[0]][]=array('pk'=>$this->getPrimaryKey($table_columns[0]), 'column'=>$table_columns[1]);
-							
-						} else {
-							if($this->fullTextIndexExists($tableName))
-								$query .= "\nDROP FULLTEXT INDEX ON \"$tableName\";";
-							
-							$query .= "CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
-						}
-						
-						
+					if($this->fullTextIndexExists($tableName)) {
+						$query .= "\nDROP FULLTEXT INDEX ON \"$tableName\";";
 					}
-					
-					//If we found any tables as part of the values to index, then create them here.
-					//NOTE: this will erase any existing FTS indexes on these target tables, so this
-					//is a bug that we'll need to address at some point.
-					if(sizeof($parent_tables)>0){
-						foreach($parent_tables as $tableName=>$details){
-							if($this->fullTextIndexExists($tableName))
-								$query .= "\nDROP FULLTEXT INDEX ON \"$tableName\";";
-
-							//Grab the first primary key, they should all be the same for this table:
-							$primary_key=$details[0]['pk'];
-							$column='';
-							foreach($details as $detail)
-								$column.=$detail['column'] . ',';
-							
-							$column=trim($column,', ');
-							
-							$query .= "CREATE FULLTEXT INDEX ON \"$tableName\" ({$column}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
-						}
-						
-					}
-						
-					//if($this->fullTextIndexExists($tableName)) {
-					//	$query .= "\nDROP FULLTEXT INDEX ON \"$tableName\";";
-					//}
-					//$query .= "CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
+					$query .= "CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
 					return $query;
 				}
 			}
