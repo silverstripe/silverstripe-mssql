@@ -1604,29 +1604,31 @@ class MSSQLQuery extends SS_Query {
 	}
 
 	public function seek($row) {
+		if(!is_resource($this->handle)) return false;
+
 		if($this->mssql) {
 			return mssql_data_seek($this->handle, $row);
 		} else {
-			user_error("MSSQLQuery::seek() sqlsrv doesn't support seek.", E_USER_WARNING);
+			user_error('MSSQLQuery::seek() not supported in sqlsrv', E_USER_WARNING);
 		}
 	}
 
 	public function numRecords() {
 		if(!is_resource($this->handle)) return false;
+
 		if($this->mssql) {
 			return mssql_num_rows($this->handle);
 		} else {
-			// WARNING: This will only work if the cursor type is NOT forward only!
+			// WARNING: This will only work if the cursor type is scrollable!
 			if(function_exists('sqlsrv_num_rows')) {
 				return sqlsrv_num_rows($this->handle);
 			} else {
-				user_error("MSSQLQuery::numRecords() not supported on this version of sqlsrv.", E_USER_WARNING);
+				user_error('MSSQLQuery::numRecords() not supported in this version of sqlsrv', E_USER_WARNING);
 			}
 		}
 	}
 
 	public function nextRecord() {
-
 		if(!is_resource($this->handle)) return false;
 
 		// Coalesce rather than replace common fields.
