@@ -93,12 +93,18 @@ class MSSQLDatabase extends SS_Database {
 	 * @var boolean
 	 */
 	protected $fullTextEnabled = null;
-	
+
+	/**
+	 * Stores per-request cached constraint checks that come from the database.
+	 * @var array
+	 */
+	protected static $cached_checks = array();
+
 	/**
 	 * @ignore
 	 */
 	protected static $collation = null;
-	
+
 	/**
 	 * Set the default collation of the MSSQL nvarchar fields that we create.
 	 * We don't apply this to the database as a whole, so that we can use unicode collations.
@@ -205,15 +211,10 @@ class MSSQLDatabase extends SS_Database {
 	
 	/**
 	 * This will set up the full text search capabilities.
-	 *
-	 * TODO: make this a _config.php setting
-	 * TODO: VERY IMPORTANT: move this so it only gets called upon a dev/build action
 	 */
 	function createFullTextCatalog() {
-		if($this->fullTextEnabled()) {
-			$result = $this->query("SELECT name FROM sys.fulltext_catalogs WHERE name = 'ftCatalog';")->value();
-			if(!$result) $this->query("CREATE FULLTEXT CATALOG ftCatalog AS DEFAULT;");
-		}
+		$result = $this->query("SELECT name FROM sys.fulltext_catalogs WHERE name = 'ftCatalog';")->value();
+		if(!$result) $this->query("CREATE FULLTEXT CATALOG ftCatalog AS DEFAULT;");
 	}
 	
 	/**
@@ -488,16 +489,51 @@ class MSSQLDatabase extends SS_Database {
 			}
 		}
 	}
-	
+
 	/**
-	 * This is a private MSSQL-only function which returns
-	 * specific details about a column's constraints (if any)
-	 * @param string $tableName Name of table the column exists in
-	 * @param string $columnName Name of column to check for
+	 * Given the table and column name, retrieve the constraint name for that column
+	 * in the table.
 	 */
-	protected function ColumnConstraints($tableName, $columnName) {
-		$constraint = $this->query("SELECT CC.CONSTRAINT_NAME, CAST(CHECK_CLAUSE AS TEXT) AS CHECK_CLAUSE, COLUMN_NAME FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME=CC.CONSTRAINT_NAME WHERE TABLE_NAME='$tableName' AND COLUMN_NAME='" . $columnName . "';")->first();
-		return $constraint;
+	public function getConstraintName($tableName, $columnName) {
+		return $this->query("
+			SELECT CONSTRAINT_NAME
+			FROM INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE
+			WHERE TABLE_NAME = '$tableName' AND COLUMN_NAME = '$columnName'
+		")->value();
+	}
+
+	/**
+	 * Given a table and column name, return a check constraint clause for that column in
+	 * the table.
+	 * 
+	 * This is an expensive query, so it is cached per-request and stored by table. The initial
+	 * call for a table that has not been cached will query all columns and store that
+	 * so subsequent calls are fast.
+	 * 
+	 * @param string $tableName Table name column resides in
+	 * @param string $columnName Column name the constraint is for
+	 * @return string The check string
+	 */
+	public function getConstraintCheckClause($tableName, $columnName) {
+		if(isset(self::$cached_checks[$tableName])) {
+			if(!isset(self::$cached_checks[$tableName][$columnName])) self::$cached_checks[$tableName][$columnName] = null;
+			return self::$cached_checks[$tableName][$columnName];
+		}
+
+		$checks = array();
+		foreach($this->query("
+			SELECT CAST(CHECK_CLAUSE AS TEXT) AS CHECK_CLAUSE, COLUMN_NAME
+			FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC
+			INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME = CC.CONSTRAINT_NAME
+			WHERE TABLE_NAME = '$tableName'
+		") as $record) {
+			$checks[$record['COLUMN_NAME']] = $record['CHECK_CLAUSE'];
+		}
+
+		self::$cached_checks[$tableName] = $checks;
+		if(!isset(self::$cached_checks[$tableName][$columnName])) self::$cached_checks[$tableName][$columnName] = null;
+
+		return self::$cached_checks[$tableName][$columnName];
 	}
 
 	/**
@@ -576,14 +612,13 @@ class MSSQLDatabase extends SS_Database {
 	
 				// SET check constraint (The constraint HAS to be dropped)
 				if(!empty($matches[4])) {
-					$constraint=$this->ColumnConstraints($tableName, $colName);
-					if($constraint)
-						$alterCol .= ";\n$prefix DROP CONSTRAINT {$constraint['CONSTRAINT_NAME']}";
-						
+					$constraint = $this->getConstraintName($tableName, $colName);
+					if($constraint) {
+						$alterCol .= ";\n$prefix DROP CONSTRAINT {$constraint}";
+					}
+
 					//NOTE: 'with nocheck' seems to solve a few problems I've been having for modifying existing tables.
 					$alterCol .= ";\n$prefix WITH NOCHECK ADD CONSTRAINT \"{$tableName}_{$colName}_check\" $matches[4]";
-					
-					
 				}
 			}
 		}
@@ -627,17 +662,14 @@ class MSSQLDatabase extends SS_Database {
 	 * @param string $newName The new name of the field
 	 */
 	public function renameField($tableName, $oldName, $newName) {
-		$fieldList = $this->fieldList($tableName);
-		if(array_key_exists($oldName, $fieldList)) {
-			$this->query("EXEC sp_rename @objname = '$tableName.$oldName', @newname = '$newName', @objtype = 'COLUMN'");
-		}
+		$this->query("EXEC sp_rename @objname = '$tableName.$oldName', @newname = '$newName', @objtype = 'COLUMN'");
 	}
-	
+
 	public function fieldList($table) {
 		//This gets us more information than we need, but I've included it all for the moment....
-		$fieldRecords = $this->query("SELECT ordinal_position, column_name, data_type, column_default, 
+		$fieldRecords = $this->query("SELECT ordinal_position, column_name, data_type, column_default,
 			is_nullable, character_maximum_length, numeric_precision, numeric_scale, collation_name
-			FROM information_schema.columns WHERE table_name = '$table' 
+			FROM information_schema.columns WHERE table_name = '$table'
 			ORDER BY ordinal_position;");
 
 		// Cache the records from the query - otherwise a lack of multiple active result sets
@@ -691,9 +723,9 @@ class MSSQLDatabase extends SS_Database {
 				case 'nvarchar':
 				case 'varchar':
 					//Check to see if there's a constraint attached to this column:
-					$constraint=$this->ColumnConstraints($table, $field['column_name']);
-					if($constraint){
-						$constraints=$this->EnumValuesFromConstraint($constraint['CHECK_CLAUSE']);
+					$clause = $this->getConstraintCheckClause($table, $field['column_name']);
+					if($clause) {
+						$constraints=$this->EnumValuesFromConstraint($clause);
 						$default=substr($field['column_default'], 2, -2);
 						$field['data_type']=$this->enum(Array('default'=>$default, 'name'=>$field['column_name'], 'enums'=>$constraints, 'table'=>$table));
 						break;
@@ -806,18 +838,18 @@ class MSSQLDatabase extends SS_Database {
 	 * @param string $indexSpec The specification of the index, see SS_Database::requireIndex() for more details.
 	 */
 	public function alterIndex($tableName, $indexName, $indexSpec) {
-	    $indexSpec = trim($indexSpec);
-	    if($indexSpec[0] != '(') {
-	    	list($indexType, $indexFields) = explode(' ',$indexSpec,2);
-	    } else {
-	    	$indexFields = $indexSpec;
-	    }
-	    
-	    if(!$indexType) {
-	    	$indexType = "index";
-	    }
-    	
-    	$this->query("DROP INDEX $indexName ON $tableName;");
+		$indexSpec = trim($indexSpec);
+		if($indexSpec[0] != '(') {
+			list($indexType, $indexFields) = explode(' ', $indexSpec, 2);
+		} else {
+			$indexFields = $indexSpec;
+		}
+
+		if(!$indexType) {
+			$indexType = "index";
+		}
+
+		$this->query("DROP INDEX $indexName ON $tableName;");
 		$this->query("ALTER TABLE \"$tableName\" ADD $indexType \"$indexName\" $indexFields");
 	}
 	
@@ -876,7 +908,7 @@ class MSSQLDatabase extends SS_Database {
 	}
 	
 	/**
-	 * Empty the given table of call contentTR
+	 * Empty the given table of all contents.
 	 */
 	public function clearTable($table) {
 		$this->query("TRUNCATE TABLE \"$table\"");
@@ -902,8 +934,7 @@ class MSSQLDatabase extends SS_Database {
 	 * @return string
 	 */
 	public function boolean($values) {
-		//Annoyingly, we need to do a good ol' fashioned switch here:
-		($values['default']) ? $default='1' : $default='0';
+		$default = ($values['default']) ? '1' : '0';
 		return 'bit not null default ' . $default;
 	}
 	
@@ -1074,13 +1105,12 @@ class MSSQLDatabase extends SS_Database {
 	 * NOTE: Experimental; introduced for db-abstraction and may changed before 2.4 is released.
 	 */
 	public function enumValuesForField($tableName, $fieldName) {
+		$classes = array();
+
 		// Get the enum of all page types from the SiteTree table
-		
-		$constraints=$this->ColumnConstraints($tableName, $fieldName);
-		$classes=Array();
-		if($constraints){
-			$constraints=$this->EnumValuesFromConstraint($constraints['CHECK_CLAUSE']);
-			$classes=$constraints;
+		$clause = $this->getConstraintCheckClause($tableName, $fieldName);
+		if($clause) {
+			$classes = $this->EnumValuesFromConstraint($clause);
 		}
 		return $classes;
 	}
@@ -1095,7 +1125,7 @@ class MSSQLDatabase extends SS_Database {
 	/**
 	 * Returns the database-specific version of the random() function
 	 */
-	function random(){
+	function random() {
 		return 'RAND()';
 	}
 	
