@@ -549,22 +549,21 @@ class MSSQLDatabase extends SS_Database {
 			and parent_obj= OBJECT_ID('$tableName')
 			and c.name = '$colName'")->value();
 	}
-			
 	
 	/**
-	 * Get the actual enum fields from the constraint value:
+	 * Get enum values from a constraint check clause.
+	 * @param string $clause Check clause to parse values from
+	 * @return array Enum values
 	 */
-	protected function EnumValuesFromConstraint($constraint){
-		$segments=preg_split('/ +OR *\[/i', $constraint);
-		$constraints=Array();
-		foreach($segments as $this_segment){
-			$bits=preg_split('/ *= */', $this_segment);
-			
-			for($i=1; $i<sizeof($bits); $i+=2)
+	protected function enumValuesFromCheckClause($clause) {
+		$segments = preg_split('/ +OR *\[/i', $clause);
+		$constraints = array();
+		foreach($segments as $segment) {
+			$bits = preg_split('/ *= */', $segment);
+			for($i = 1; $i < sizeof($bits); $i += 2) {
 				array_unshift($constraints, substr(rtrim($bits[$i], ')'), 1, -1));
-			
+			}
 		}
-		
 		return $constraints;
 	}
 	
@@ -725,9 +724,14 @@ class MSSQLDatabase extends SS_Database {
 					//Check to see if there's a constraint attached to this column:
 					$clause = $this->getConstraintCheckClause($table, $field['column_name']);
 					if($clause) {
-						$constraints=$this->EnumValuesFromConstraint($clause);
-						$default=substr($field['column_default'], 2, -2);
-						$field['data_type']=$this->enum(Array('default'=>$default, 'name'=>$field['column_name'], 'enums'=>$constraints, 'table'=>$table));
+						$constraints = $this->enumValuesFromCheckClause($clause);
+						$default = substr($field['column_default'], 2, -2);
+						$field['data_type'] = $this->enum(array(
+							'default' => $default,
+							'name' => $field['column_name'],
+							'enums' => $constraints,
+							'table' => $table
+						));
 						break;
 					}
 
@@ -1110,8 +1114,9 @@ class MSSQLDatabase extends SS_Database {
 		// Get the enum of all page types from the SiteTree table
 		$clause = $this->getConstraintCheckClause($tableName, $fieldName);
 		if($clause) {
-			$classes = $this->EnumValuesFromConstraint($clause);
+			$classes = $this->enumValuesFromCheckClause($clause);
 		}
+
 		return $classes;
 	}
 
