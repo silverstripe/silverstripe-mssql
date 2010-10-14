@@ -1595,11 +1595,13 @@ class MSSQLQuery extends SS_Query {
 		$this->mssql = $mssql;
 	}
 
-	public function __destroy() {
-		if($this->mssql) {
-			mssql_free_result($this->handle);
-		} else {
-			sqlsrv_free_stmt($this->handle);
+	public function __destruct() {
+		if(is_resource($this->handle)) {
+			if($this->mssql) {
+				mssql_free_result($this->handle);
+			} else {
+				sqlsrv_free_stmt($this->handle);
+			}
 		}
 	}
 
