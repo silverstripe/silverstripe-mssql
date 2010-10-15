@@ -333,6 +333,20 @@ class MSSQLDatabase extends SS_Database {
 		return $primary_key;
 	}
 	
+	function getIdentityColumn($tableName) {
+		return $this->query("
+			SELECT
+				TABLE_NAME + '.' + COLUMN_NAME,
+				TABLE_NAME
+ 			FROM
+				INFORMATION_SCHEMA.COLUMNS
+ 			WHERE
+				TABLE_SCHEMA = 'dbo' AND
+				COLUMNPROPERTY(object_id(TABLE_NAME), COLUMN_NAME, 'IsIdentity') = 1 AND
+				TABLE_NAME = '$tableName'
+		")->value();
+	}
+	
 	public function isActive() {
 		return $this->active ? true : false;
 	}
@@ -893,8 +907,7 @@ class MSSQLDatabase extends SS_Database {
 	public function tableList() {
 		$tables = array();
 		foreach($this->query("EXEC sp_tables @table_owner = 'dbo';") as $record) {
-			$table = strtolower($record['TABLE_NAME']);
-			$tables[$table] = $table;
+			$tables[strtolower($record['TABLE_NAME'])] = $record['TABLE_NAME'];
 		}
 		return $tables;
 	}
