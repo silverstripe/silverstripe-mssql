@@ -312,7 +312,6 @@ class MSSQLDatabase extends SS_Database {
 	}
 	
 	public function getGeneratedID($table) {
-		//return $this->query("SELECT @@IDENTITY FROM \"$table\"")->value();
 		return $this->query("SELECT IDENT_CURRENT('$table')")->value();
 	}
 	
@@ -332,17 +331,6 @@ class MSSQLDatabase extends SS_Database {
 		}
 		
 		return $primary_key;
-	}
-	
-	/**
-	 * OBSOLETE: Get the ID for the next new record for the table.
-	 * @param string $table The name of the table
-	 * @return int
-	 */
-	public function getNextID($table) {
-		user_error('getNextID is OBSOLETE (and will no longer work properly)', E_USER_WARNING);
-		$result = $this->query("SELECT MAX(ID)+1 FROM \"$table\"")->value();
-		return $result ? $result : 1;
 	}
 	
 	public function isActive() {
