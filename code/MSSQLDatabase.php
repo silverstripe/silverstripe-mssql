@@ -314,25 +314,27 @@ class MSSQLDatabase extends SS_Database {
 	public function getGeneratedID($table) {
 		return $this->query("SELECT IDENT_CURRENT('$table')")->value();
 	}
-	
-	/*
-	 * This is a handy helper function which will return the primary key for any paricular table
-	 * In MSSQL, the primary key is often an internal identifier, NOT the standard name (ie, 'ID'),
-	 * so we need to do a lookup for it.
+
+	/**
+	 * MSSQL stores the primary key column with an internal identifier,
+	 * so a lookup needs to be done to determine it.
+	 * 
+	 * @param string $tableName Name of table with primary key column "ID"
+	 * @return string Internal identifier for primary key
 	 */
-	function getPrimaryKey($tableName){
-		$indexes=DB::query("EXEC sp_helpindex '$tableName';");
-		$primary_key='';
-		foreach($indexes as $this_index){
-			if($this_index['index_keys']=='ID'){
-				$primary_key=$this_index['index_name'];
+	function getPrimaryKey($tableName) {
+		$indexes = DB::query("EXEC sp_helpindex '$tableName';");
+		$indexName = '';
+		foreach($indexes as $index) {
+			if($index['index_keys'] == 'ID') {
+				$indexName = $index['index_name'];
 				break;
 			}
 		}
-		
-		return $primary_key;
+
+		return $indexName;
 	}
-	
+
 	function getIdentityColumn($tableName) {
 		return $this->query("
 			SELECT
