@@ -1251,8 +1251,10 @@ class MSSQLDatabase extends SS_Database {
 	
 	/**
 	 * The core search engine configuration.
-	 * @todo There is no result relevancy or ordering as it currently stands.
+	 * Picks up the fulltext-indexed tables from the database and executes search on all of them.
+	 * Results are obtained as ID-ClassName pairs which is later used to reconstruct the DataObjectSet.
 	 * 
+	 * @param array classesToSearch computes all descendants and includes them. Check is done via WHERE clause.
 	 * @param string $keywords Keywords as a space separated string
 	 * @return object DataObjectSet of result pages
 	 */
@@ -1260,6 +1262,12 @@ class MSSQLDatabase extends SS_Database {
 		$results = new DataObjectSet();
 		if(!$this->fullTextEnabled()) return $results;
 		if (substr($sortBy, 0, 9)!='Relevance') user_error("Non-relevance sort not supported.", E_USER_ERROR);
+
+		$allClassesToSearch = array();
+		foreach ($classesToSearch as $class) {
+			$allClassesToSearch = array_merge($allClassesToSearch, ClassInfo::dataClassesFor($class));
+		}
+		$allClassesToSearch = array_unique($allClassesToSearch);
 		
 		//Get a list of all the tables and columns we'll be searching on:
 		$fulltextColumns = DB::query('EXEC sp_help_fulltext_columns');
@@ -1277,8 +1285,10 @@ class MSSQLDatabase extends SS_Database {
 			else array_push($table, $column['FULLTEXT_COLUMN_NAME']);
 		}
 
-		// Create one query per each table, columns not used.
+		// Create one query per each table, $columns not used. We want just the ID and the ClassName of the object from this query.
 		foreach($tables as $tableName=>$columns){
+			$baseClass = ClassInfo::baseDataClass($tableName);
+
 			$join = $this->fullTextSearchMSSQL($tableName, $keywords);
 			if (!$join) return new DataObjectSet(); // avoid "Null or empty full-text predicate"
 
@@ -1288,11 +1298,24 @@ class MSSQLDatabase extends SS_Database {
 				$where = array("\"$tableName\".\"ShowInSearch\"!=0");
 			}
 
-			// Join with CONTAINSTABLE, a full text searcher that includes relevance factor
 			$queries[$tableName] = singleton($tableName)->extendedSQL($where);
-			$queries[$tableName]->from = array("\"$tableName\" INNER JOIN $join AS \"ft\" ON \"$tableName\".\"ID\"=\"ft\".\"KEY\"");
-			$queries[$tableName]->select = array("\"$tableName\".\"ID\"", "'$tableName' AS Source", "\"Rank\" AS \"Relevance\"");
 			$queries[$tableName]->orderby = null;
+			
+			// Join with CONTAINSTABLE, a full text searcher that includes relevance factor
+			$queries[$tableName]->from = array("\"$tableName\" INNER JOIN $join AS \"ft\" ON \"$tableName\".\"ID\"=\"ft\".\"KEY\"");
+			// Join with the base class if needed, as we want to test agains the ClassName
+			if ($tableName!=$baseClass) {
+				$queries[$tableName]->from[] = "INNER JOIN \"$baseClass\" ON  \"$baseClass\".\"ID\"=\"$tableName\".\"ID\"";
+			}
+			$queries[$tableName]->select = array("\"$tableName\".\"ID\"", "'$tableName' AS Source", "\"Rank\" AS \"Relevance\"");
+			if ($extraFilter) {
+				$queries[$tableName]->where[] = $extraFilter;
+			}
+			if (count($allClassesToSearch)) {
+				$queries[$tableName]->where[] = "\"$baseClass\".\"ClassName\" IN ('".implode($allClassesToSearch, "', '")."')";
+			}
+			// Reset the parameters that would get in the way
+
 		}
 
 		// Generate SQL
