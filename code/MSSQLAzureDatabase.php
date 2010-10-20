@@ -1,8 +1,7 @@
 <?php
 /**
  * Specific support for SQL Azure databases running on Windows Azure.
- * "sqlsrv" for PHP MUST be installed to use SQL Azure. It does not support
- * the mssql_*() functions in PHP, as SQL Azure is Windows only.
+ * Currently only supports the SQLSRV driver from Microsoft.
  * 
  * Some important things about SQL Azure:
  * 
@@ -42,7 +41,6 @@ class MSSQLAzureDatabase extends MSSQLDatabase {
 		$this->tableList = $this->fieldList = $this->indexList = null;
 		$this->database = $parameters['database'];
 		$this->active = true;
-		$this->mssql = false; // mssql functions don't work with this database
 		$this->fullTextEnabled = false;
 
 		$this->query('SET QUOTED_IDENTIFIER ON');
