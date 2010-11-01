@@ -1263,7 +1263,7 @@ class MSSQLDatabase extends SS_Database {
 	public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
 		$results = new DataObjectSet();
 		if(!$this->fullTextEnabled()) return $results;
-		if (substr($sortBy, 0, 9)!='Relevance') user_error("Non-relevance sort not supported.", E_USER_ERROR);
+		if (!in_array(substr($sortBy, 0, 9), array('"Relevanc', 'Relevance'))) user_error("Non-relevance sort not supported.", E_USER_ERROR);
 
 		$allClassesToSearch = array();
 		foreach ($classesToSearch as $class) {
