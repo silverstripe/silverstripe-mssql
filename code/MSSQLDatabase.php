@@ -371,7 +371,16 @@ class MSSQLDatabase extends SS_Database {
 		$this->query("DROP DATABASE \"$db\"");
 		$this->active = false;
 	}
-	
+
+	/**
+	 * Drop the given database name.
+	 * Use with caution.
+	 * @param string $name Database name to drop
+	 */
+	public function dropDatabaseByName($name) {
+		$this->query("DROP DATABASE \"$name\"");
+	}
+
 	/**
 	 * Returns the name of the currently selected database
 	 */
@@ -405,20 +414,26 @@ class MSSQLDatabase extends SS_Database {
 	}
 
 	/**
-	 * Check if the given database exists.
+	 * Check if the given database exists from {@link allDatabaseNames()}.
 	 * @param string $name Name of database to check exists
 	 * @return boolean
 	 */
 	public function databaseExists($name) {
-		$listDBs = $this->query('SELECT NAME FROM sys.sysdatabases');
-		if($listDBs) {
-			foreach($listDBs as $listedDB) {
-				if($listedDB['NAME'] == $name) return true;
-			}
+		$databases = $this->allDatabaseNames();
+		foreach($databases as $dbname) {
+			if($dbname == $name) return true;
 		}
 		return false;
 	}
-	
+
+	/**
+	 * Return all databases names from the server.
+	 * @return array
+	 */
+	public function allDatabaseNames() {
+		return $this->query('SELECT NAME FROM sys.sysdatabases')->column();
+	}
+
 	/**
 	 * Create a new table.
 	 * @param $tableName The name of the table
