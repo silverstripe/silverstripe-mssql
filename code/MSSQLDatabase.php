@@ -1251,7 +1251,7 @@ class MSSQLDatabase extends SS_Database {
 	 * Using PHP's addslashes method won't work in MSSQL
 	 */
 	function addslashes($value){
-		$value=stripslashes($value);
+//		$value=stripslashes($value);
     	$value=str_replace("'","''",$value);
     	$value=str_replace("\0","[NULL]",$value);
 
