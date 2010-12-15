@@ -1245,19 +1245,18 @@ class MSSQLDatabase extends SS_Database {
 		
 		return $text;
 	}
-	
-	/*
-	 * This will return text which has been escaped in a database-friendly manner
-	 * Using PHP's addslashes method won't work in MSSQL
-	 */
-	function addslashes($value){
-//		$value=stripslashes($value);
-    	$value=str_replace("'","''",$value);
-    	$value=str_replace("\0","[NULL]",$value);
 
-    	return $value;
+	/**
+	 * Escapes a value with specific escape characters specific to the MSSQL.
+	 * @param string $value String to escape
+	 * @return string Escaped string
+	 */
+	function addslashes($value) {
+		$value = str_replace("'", "''", $value);
+		$value = str_replace("\0", "[NULL]", $value);
+		return $value;
 	}
-	
+
 	/**
 	 * This changes the index name depending on database requirements.
 	 * MSSQL requires underscores to be replaced with commas.
@@ -1265,7 +1264,7 @@ class MSSQLDatabase extends SS_Database {
 	function modifyIndex($index) {
 		return str_replace('_', ',', $index);
 	}
-	
+
 	/**
 	 * The core search engine configuration.
 	 * Picks up the fulltext-indexed tables from the database and executes search on all of them.
