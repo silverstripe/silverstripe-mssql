@@ -1,69 +1,69 @@
 <?php
 /**
  * Microsoft SQL Server 2008+ connector class.
- * 
+ *
  * <h2>Connecting using Windows</h2>
- * 
+ *
  * If you've got your website running on Windows, it's highly recommended you
  * use Microsoft SQL Server Driver for PHP "sqlsrv".
- * 
+ *
  * A complete guide to installing a Windows IIS + PHP + SQL Server web stack can be
  * found here: http://doc.silverstripe.org/installation-on-windows-server-manual-iis
- * 
+ *
  * @see http://sqlsrvphp.codeplex.com/
- * 
+ *
  * <h2>Connecting using Linux or Mac OS X</h2>
- * 
+ *
  * The following commands assume you used the default package manager
  * to install PHP with the operating system.
- * 
+ *
  * Debian, and Ubuntu:
  * <code>apt-get install php5-sybase</code>
  *
  * Fedora, CentOS and RedHat:
  * <code>yum install php-mssql</code>
- * 
+ *
  * Mac OS X (MacPorts):
  * <code>port install php5-mssql</code>
- * 
+ *
  * These packages will install the mssql extension for PHP, as well
  * as FreeTDS, which will let you connect to SQL Server.
- * 
+ *
  * More information available in the SilverStripe developer wiki:
  * @see http://doc.silverstripe.org/modules:mssql
  * @see http://doc.silverstripe.org/installation-on-windows-server-manual-iis
- * 
+ *
  * References:
  * @see http://freetds.org
- * 
+ *
  * @package mssql
  */
 class MSSQLDatabase extends SS_Database {
-	
+
 	/**
 	 * Connection to the DBMS.
 	 * @var resource
 	 */
 	protected $dbConn;
-	
+
 	/**
 	 * True if we are connected to a database.
 	 * @var boolean
 	 */
 	protected $active;
-	
+
 	/**
 	 * The name of the database.
 	 * @var string
 	 */
 	protected $database;
-	
+
 	/**
 	 * If true, use the mssql_... functions.
 	 * If false use the sqlsrv_... functions
 	 */
 	protected $mssql = null;
-	
+
 	/**
 	 * Stores the affected rows of the last query.
 	 * Used by sqlsrv functions only, as sqlsrv_rows_affected
@@ -79,17 +79,17 @@ class MSSQLDatabase extends SS_Database {
 	/**
 	 * Transactions will work with FreeTDS, but not entirely with sqlsrv driver on Windows with MARS enabled.
 	 * TODO:
-	 * - after the test fails with open transaction, the transaction should be rolled back, 
+	 * - after the test fails with open transaction, the transaction should be rolled back,
 	 *   otherwise other tests will break claiming that transaction is still open.
 	 * - figure out SAVEPOINTS
 	 * - READ ONLY transactions
 	 */
 	protected $supportsTransactions = true;
-	
+
 	/**
 	 * Cached flag to determine if full-text is enabled. This is set by
 	 * {@link MSSQLDatabase::fullTextEnabled()}
-	 * 
+	 *
 	 * @var boolean
 	 */
 	protected $fullTextEnabled = null;
@@ -112,7 +112,7 @@ class MSSQLDatabase extends SS_Database {
 	public static function set_collation($collation) {
 		self::$collation = $collation;
 	}
-	
+
 	/**
 	 * Connect to a MS SQL database.
 	 * @param array $parameters An map of parameters, which should include:
@@ -163,7 +163,7 @@ class MSSQLDatabase extends SS_Database {
 			$this->query('SET TEXTSIZE 2147483647');
 		}
 	}
-	
+
 	public function __destruct() {
 		if(is_resource($this->dbConn)) {
 			if($this->mssql) {
@@ -173,11 +173,11 @@ class MSSQLDatabase extends SS_Database {
 			}
 		}
 	}
-	
+
 	/**
 	 * Checks whether the current SQL Server version has full-text
 	 * support installed and full-text is enabled for this database.
-	 * 
+	 *
 	 * @return boolean
 	 */
 	public function fullTextEnabled() {
@@ -192,7 +192,7 @@ class MSSQLDatabase extends SS_Database {
 		}
 		return $this->fullTextEnabled;
 	}
-	
+
 	/**
 	 * Throw a database error
 	 */
@@ -205,18 +205,18 @@ class MSSQLDatabase extends SS_Database {
 			}
 			$message .= ": \n" . implode("; ",$errorMessages);
 		}
-		
+
 		return parent::databaseError($message, $errorLevel);
 	}
-	
+
 	/**
 	 * This will set up the full text search capabilities.
 	 */
 	function createFullTextCatalog() {
-		$result = $this->query("SELECT name FROM sys.fulltext_catalogs WHERE name = 'ftCatalog';")->value();
-		if(!$result) $this->query("CREATE FULLTEXT CATALOG ftCatalog AS DEFAULT;");
-	}
-	
+			$result = $this->query("SELECT name FROM sys.fulltext_catalogs WHERE name = 'ftCatalog';")->value();
+			if(!$result) $this->query("CREATE FULLTEXT CATALOG ftCatalog AS DEFAULT;");
+		}
+
 	/**
 	 * Sleep until the catalog has been fully rebuilt. This is a busy wait designed for situations
 	 * when you need to be sure the index is up to date - for example in unit tests.
@@ -229,12 +229,12 @@ class MSSQLDatabase extends SS_Database {
 	function waitUntilIndexingFinished($maxWaitingTime = 15) {
 		if($this->fullTextEnabled()) {
 			$this->query("EXEC sp_fulltext_catalog 'ftCatalog', 'Rebuild';");
-			
+
 			// Busy wait until it's done updating, but no longer than 15 seconds.
 			$start = time();
 			while(time()-$start<$maxWaitingTime) {
 				$status = $this->query("EXEC sp_help_fulltext_catalogs 'ftCatalog';")->first();
-				
+
 				if (isset($status['STATUS']) && $status['STATUS']==0) {
 					// Idle!
 					break;
@@ -243,14 +243,14 @@ class MSSQLDatabase extends SS_Database {
 			}
 		}
 	}
-	
+
 	/**
 	 * Not implemented, needed for PDO
 	 */
 	public function getConnect($parameters) {
 		return null;
 	}
-	
+
 	/**
 	 * Returns true if this database supports collations
 	 * @return boolean
@@ -258,7 +258,7 @@ class MSSQLDatabase extends SS_Database {
 	public function supportsCollations() {
 		return true;
 	}
-	
+
 	/**
 	 * Get the version of MSSQL.
 	 * @return string
@@ -266,7 +266,7 @@ class MSSQLDatabase extends SS_Database {
 	public function getVersion() {
 		return trim($this->query("SELECT CONVERT(char(15), SERVERPROPERTY('ProductVersion'))")->value());
 	}
-	
+
 	/**
 	 * Get the database server, namely mssql.
 	 * @return string
@@ -274,14 +274,14 @@ class MSSQLDatabase extends SS_Database {
 	public function getDatabaseServer() {
 		return "mssql";
 	}
-	
+
 	public function query($sql, $errorLevel = E_USER_ERROR) {
 		if(isset($_REQUEST['previewwrite']) && in_array(strtolower(substr($sql,0,strpos($sql,' '))), array('insert','update','delete','replace'))) {
 			Debug::message("Will execute: $sql");
 			return;
 		}
 
-		if(isset($_REQUEST['showqueries'])) { 
+		if(isset($_REQUEST['showqueries'])) {
 			$starttime = microtime(true);
 		}
 
@@ -310,7 +310,7 @@ class MSSQLDatabase extends SS_Database {
 		if(!$handle && $errorLevel) $this->databaseError("Couldn't run query ($error): $sql", $errorLevel);
 		return new MSSQLQuery($this, $handle, $this->mssql);
 	}
-	
+
 	public function getGeneratedID($table) {
 		return $this->query("SELECT IDENT_CURRENT('$table')")->value();
 	}
@@ -322,8 +322,8 @@ class MSSQLDatabase extends SS_Database {
 	 * @param string $tableName Name of table with primary key column "ID"
 	 * @return string Internal identifier for primary key
 	 */
-	function getPrimaryKey($tableName) {
-		$indexes = DB::query("EXEC sp_helpindex '$tableName';");
+	function getPrimaryKey($tableName){
+		$indexes=DB::query("EXEC sp_helpindex '$tableName';");
 		$indexName = '';
 		foreach($indexes as $index) {
 			if($index['index_keys'] == 'ID') {
@@ -348,11 +348,11 @@ class MSSQLDatabase extends SS_Database {
 				TABLE_NAME = '$tableName'
 		")->value();
 	}
-	
+
 	public function isActive() {
 		return $this->active ? true : false;
 	}
-	
+
 	/**
 	 * Create the database that is currently selected.
 	 */
@@ -387,18 +387,18 @@ class MSSQLDatabase extends SS_Database {
 	public function currentDatabase() {
 		return $this->database;
 	}
-	
+
 	/**
 	 * Switches to the given database.
-	 * 
+	 *
 	 * If the database doesn't exist, you should call
 	 * createDatabase() after calling selectDatabase()
-	 * 
+	 *
 	 * @param string $dbname The database name to switch to
 	 */
 	public function selectDatabase($dbname) {
 		$this->database = $dbname;
-		
+
 		if($this->databaseExists($this->database)) {
 			if($this->mssql) {
 				if(mssql_select_db($this->database, $this->dbConn)) {
@@ -409,7 +409,7 @@ class MSSQLDatabase extends SS_Database {
 				$this->active = true;
 			}
 		}
-		
+
 		$this->tableList = $this->fieldList = $this->indexList = $this->fullTextEnabled = null;
 	}
 
@@ -422,9 +422,9 @@ class MSSQLDatabase extends SS_Database {
 		$databases = $this->allDatabaseNames();
 		foreach($databases as $dbname) {
 			if($dbname == $name) return true;
-		}
+			}
 		return false;
-	}
+		}
 
 	/**
 	 * Return all databases names from the server.
@@ -447,26 +447,26 @@ class MSSQLDatabase extends SS_Database {
 	public function createTable($tableName, $fields = null, $indexes = null, $options = null, $advancedOptions = null) {
 		$fieldSchemas = $indexSchemas = "";
 		if($fields) foreach($fields as $k => $v) $fieldSchemas .= "\"$k\" $v,\n";
-		
+
 		// Temporary tables start with "#" in MSSQL-land
 		if(!empty($options['temporary'])) {
 			// Randomize the temp table name to avoid conflicts in the tempdb table which derived databases share
 			$tableName = "#$tableName" . '-' . rand(1000000, 9999999);
 		}
-		
+
 		$this->query("CREATE TABLE \"$tableName\" (
 			$fieldSchemas
 			primary key (\"ID\")
 		);");
-		
+
 		//we need to generate indexes like this: CREATE INDEX IX_vault_to_export ON vault (to_export);
 		//This needs to be done AFTER the table creation, so we can set up the fulltext indexes correctly
 		if($indexes) foreach($indexes as $k => $v) {
 			$indexSchemas .= $this->getIndexSqlDefinition($tableName, $k, $v) . "\n";
 		}
-		
+
 		if($indexSchemas) $this->query($indexSchemas);
-		
+
 		return $tableName;
 	}
 
@@ -482,7 +482,7 @@ class MSSQLDatabase extends SS_Database {
 		$fieldSchemas = $indexSchemas = "";
 		$alterList = array();
 		$indexList = $this->indexList($tableName);
-		
+
 		if($newFields) foreach($newFields as $k => $v) $alterList[] .= "ALTER TABLE \"$tableName\" ADD \"$k\" $v";
 
 		if($alteredFields) {
@@ -496,7 +496,7 @@ class MSSQLDatabase extends SS_Database {
 				if($val != '') $alterList[] .= $val;
 			}
 		}
-		
+
 		if($alteredIndexes) foreach($alteredIndexes as $k => $v) $alterList[] .= $this->getIndexSqlDefinition($tableName, $k, $v);
 		if($newIndexes) foreach($newIndexes as $k =>$v) $alterList[] .= $this->getIndexSqlDefinition($tableName, $k, $v);
 
@@ -568,7 +568,8 @@ class MSSQLDatabase extends SS_Database {
 			and parent_obj= OBJECT_ID('$tableName')
 			and c.name = '$colName'")->value();
 	}
-	
+
+
 	/**
 	 * Get enum values from a constraint check clause.
 	 * @param string $clause Check clause to parse values from
@@ -581,14 +582,15 @@ class MSSQLDatabase extends SS_Database {
 			$bits = preg_split('/ *= */', $segment);
 			for($i = 1; $i < sizeof($bits); $i += 2) {
 				array_unshift($constraints, substr(rtrim($bits[$i], ')'), 1, -1));
-			}
+
+		}
 		}
 		return $constraints;
 	}
-	
+
 	/*
 	 * Creates an ALTER expression for a column in MS SQL
-	 * 
+	 *
 	 * @param $tableName Name of the table to be altered
 	 * @param $colName   Name of the column to be altered
 	 * @param $colSpec   String which contains conditions for a column
@@ -602,32 +604,32 @@ class MSSQLDatabase extends SS_Database {
 		$pattern = '/^([\w()]+)\s?((?:not\s)?null)?\s?(default\s[\w\']+)?\s?(check\s?[\w()\'",\s]+)?$/i';
 		$matches=Array();
 		preg_match($pattern, $colSpec, $matches);
-		
+
 		// drop the index if it exists
 		$alterCol='';
 		$indexName = isset($indexList[$colName]['indexname']) ? $indexList[$colName]['indexname'] : null;
 		if($indexName && $colName != 'ID') {
 			$alterCol = "\nDROP INDEX \"$indexName\" ON \"$tableName\";";
 		}
-		
+
 		$prefix="ALTER TABLE \"" . $tableName . "\" ";
 
 		// Remove the old default prior to adjusting the column.
 		if($defaultConstraintName = $this->defaultConstraintName($tableName, $colName)) {
 			$alterCol .= ";\n$prefix DROP CONSTRAINT \"$defaultConstraintName\"";
 		}
-		
+
 		if(isset($matches[1])) {
 			//We will prevent any changes being made to the ID column.  Primary key indexes will have a fit if we do anything here.
 			if($colName!='ID'){
 				$alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" $matches[1]";
-			
+
 				// SET null / not null
 				if(!empty($matches[2])) $alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" $matches[1] $matches[2]";
-	
+
 				// Add a default back
 				if(!empty($matches[3])) $alterCol .= ";\n$prefix ADD $matches[3] FOR \"$colName\"";
-	
+
 				// SET check constraint (The constraint HAS to be dropped)
 				if(!empty($matches[4])) {
 					$constraint = $this->getConstraintName($tableName, $colName);
@@ -637,31 +639,33 @@ class MSSQLDatabase extends SS_Database {
 
 					//NOTE: 'with nocheck' seems to solve a few problems I've been having for modifying existing tables.
 					$alterCol .= ";\n$prefix WITH NOCHECK ADD CONSTRAINT \"{$tableName}_{$colName}_check\" $matches[4]";
+
+
 				}
 			}
 		}
 		return isset($alterCol) ? $alterCol : '';
 	}
-	
+
 	public function renameTable($oldTableName, $newTableName) {
 		$this->query("EXEC sp_rename \"$oldTableName\", \"$newTableName\"");
 	}
-	
+
 	/**
 	 * Checks a table's integrity and repairs it if necessary.
 	 * NOTE: MSSQL does not appear to support any vacuum or optimise commands
-	 * 
+	 *
 	 * @var string $tableName The name of the table.
 	 * @return boolean Return true if the table has integrity after the method is complete.
 	 */
 	public function checkAndRepairTable($tableName) {
 		return true;
 	}
-	
+
 	public function createField($tableName, $fieldName, $fieldSpec) {
 		$this->query("ALTER TABLE \"$tableName\" ADD \"$fieldName\" $fieldSpec");
 	}
-	
+
 	/**
 	 * Change the database type of the given field.
 	 * @param string $tableName The name of the tbale the field is in.
@@ -674,14 +678,14 @@ class MSSQLDatabase extends SS_Database {
 
 	/**
 	 * Change the database column name of the given field.
-	 * 
+	 *
 	 * @param string $tableName The name of the tbale the field is in.
 	 * @param string $oldName The name of the field to change.
 	 * @param string $newName The new name of the field
 	 */
 	public function renameField($tableName, $oldName, $newName) {
-		$this->query("EXEC sp_rename @objname = '$tableName.$oldName', @newname = '$newName', @objtype = 'COLUMN'");
-	}
+			$this->query("EXEC sp_rename @objname = '$tableName.$oldName', @newname = '$newName', @objtype = 'COLUMN'");
+		}
 
 	public function fieldList($table) {
 		//This gets us more information than we need, but I've included it all for the moment....
@@ -697,7 +701,7 @@ class MSSQLDatabase extends SS_Database {
 		foreach($fieldRecords as $record) {
 			$fields[] = $record;
 		}
-		
+
 		foreach($fields as $field) {
 			// Update the data_type field to be a complete column definition string for use by
 			// SS_Database::requireField()
@@ -737,14 +741,14 @@ class MSSQLDatabase extends SS_Database {
 						$field['data_type'] .= " default $default";
 					}
 					break;
-				
+
 				case 'nvarchar':
 				case 'varchar':
 					//Check to see if there's a constraint attached to this column:
 					$clause = $this->getConstraintCheckClause($table, $field['column_name']);
 					if($clause) {
 						$constraints = $this->enumValuesFromCheckClause($clause);
-						$default = substr($field['column_default'], 2, -2);
+						$default=substr($field['column_default'], 2, -2);
 						$field['data_type'] = $this->enum(array(
 							'default' => $default,
 							'name' => $field['column_name'],
@@ -772,12 +776,24 @@ class MSSQLDatabase extends SS_Database {
 					}
 			}
 			$output[$field['column_name']]=$field;
-			
+
 		}
-		
+
 		return $output;
 	}
-	
+
+	/**
+	 *
+	 * This is a stub function.  Postgres caches the fieldlist results.
+	 *
+	 * @param string $tableName
+	 *
+	 * @return boolean
+	 */
+	function clear_cached_fieldlist($tableName=false){
+		return true;
+	}
+
 	/**
 	 * Create an index on a table.
 	 * @param string $tableName The name of the table.
@@ -787,7 +803,7 @@ class MSSQLDatabase extends SS_Database {
 	public function createIndex($tableName, $indexName, $indexSpec) {
 		$this->query($this->getIndexSqlDefinition($tableName, $indexName, $indexSpec));
 	}
-	
+
 	/**
 	 * This takes the index spec which has been provided by a class (ie static $indexes = blah blah)
 	 * and turns it into a proper string.
@@ -806,10 +822,10 @@ class MSSQLDatabase extends SS_Database {
 					break;
 			}
 		}
-		
+
 		return $indexSpec;
 	}
-	
+
 	/**
 	 * Return SQL for dropping and recreating an index
 	 */
@@ -821,7 +837,7 @@ class MSSQLDatabase extends SS_Database {
 			$indexSpec=trim($indexSpec, '()');
 			$bits=explode(',', $indexSpec);
 			$indexes="\"" . implode("\",\"", $bits) . "\"";
-			
+
 			return "$drop CREATE INDEX $index ON \"" . $tableName . "\" (" . $indexes . ");";
 		} else {
 			//create a type-specific index
@@ -830,7 +846,7 @@ class MSSQLDatabase extends SS_Database {
 					//Enable full text search.
 					$this->createFullTextCatalog();
 					$primary_key = $this->getPrimaryKey($tableName);
-					
+
 					$query = '';
 					if($this->fullTextIndexExists($tableName)) {
 						$query .= "\nDROP FULLTEXT INDEX ON \"$tableName\";";
@@ -839,21 +855,21 @@ class MSSQLDatabase extends SS_Database {
 					return $query;
 				}
 			}
-			
+
 			if($indexSpec['type'] == 'unique') {
 				if(!is_array($indexSpec['value'])) $columns = preg_split('/ *, */', trim($indexSpec['value']));
 				else $columns = $indexSpec['value'];
 				$SQL_columnList = '"' . implode('", "', $columns) . '"';
-				
+
 				return "$drop CREATE UNIQUE INDEX $index ON \"" . $tableName . "\" ($SQL_columnList);";
 			}
 		}
 	}
-	
+
 	function getDbSqlDefinition($tableName, $indexName, $indexSpec){
 		return $indexName;
 	}
-	
+
 	/**
 	 * Alter an index on a table.
 	 * @param string $tableName The name of the table.
@@ -861,21 +877,21 @@ class MSSQLDatabase extends SS_Database {
 	 * @param string $indexSpec The specification of the index, see SS_Database::requireIndex() for more details.
 	 */
 	public function alterIndex($tableName, $indexName, $indexSpec) {
-		$indexSpec = trim($indexSpec);
-		if($indexSpec[0] != '(') {
-			list($indexType, $indexFields) = explode(' ', $indexSpec, 2);
-		} else {
-			$indexFields = $indexSpec;
-		}
+	    $indexSpec = trim($indexSpec);
+	    if($indexSpec[0] != '(') {
+	    	list($indexType, $indexFields) = explode(' ',$indexSpec,2);
+	    } else {
+	    	$indexFields = $indexSpec;
+	    }
 
-		if(!$indexType) {
-			$indexType = "index";
-		}
+	    if(!$indexType) {
+	    	$indexType = "index";
+	    }
 
-		$this->query("DROP INDEX $indexName ON $tableName;");
+    	$this->query("DROP INDEX $indexName ON $tableName;");
 		$this->query("ALTER TABLE \"$tableName\" ADD $indexType \"$indexName\" $indexFields");
 	}
-	
+
 	/**
 	 * Return the list of indexes in a table.
 	 * @param string $table The table name.
@@ -928,14 +944,14 @@ class MSSQLDatabase extends SS_Database {
 		}
 		return $tables;
 	}
-	
+
 	/**
 	 * Empty the given table of all contents.
 	 */
 	public function clearTable($table) {
 		$this->query("TRUNCATE TABLE \"$table\"");
 	}
-	
+
 	/**
 	 * Return the number of rows affected by the previous operation.
 	 * @return int
@@ -951,7 +967,7 @@ class MSSQLDatabase extends SS_Database {
 	/**
 	 * Return a boolean type-formatted string
 	 * We use 'bit' so that we can do numeric-based comparisons
-	 * 
+	 *
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
@@ -959,20 +975,20 @@ class MSSQLDatabase extends SS_Database {
 		$default = ($values['default']) ? '1' : '0';
 		return 'bit not null default ' . $default;
 	}
-	
+
 	/**
 	 * Return a date type-formatted string.
-	 * 
+	 *
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
 	public function date($values) {
 		return 'datetime null';
 	}
-	
+
 	/**
 	 * Return a decimal type-formatted string
-	 * 
+	 *
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
@@ -983,18 +999,18 @@ class MSSQLDatabase extends SS_Database {
 		} else {
 			$precision = $values['precision'];
 		}
-		
+
 		$defaultValue = '0';
 		if(isset($values['default']) && is_numeric($values['default'])) {
 			$defaultValue = $values['default'];
 		}
-		
+
 		return 'decimal(' . $precision . ') not null default ' . $defaultValue;
 	}
-	
+
 	/**
 	 * Return a enum type-formatted string
-	 * 
+	 *
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
@@ -1005,31 +1021,31 @@ class MSSQLDatabase extends SS_Database {
 
 		$maxLength = max(array_map('strlen', $values['enums']));
 
-		return "varchar($maxLength) not null default '" . $values['default'] 
-			. "' check(\"" . $values['name'] . "\" in ('" . implode("','", $values['enums']) 
+		return "varchar($maxLength) not null default '" . $values['default']
+			. "' check(\"" . $values['name'] . "\" in ('" . implode("','", $values['enums'])
 			. "'))";
 	}
-	
+
 	/**
 	 * @todo Make this work like {@link MySQLDatabase::set()}
 	 */
 	public function set($values) {
 		return $this->enum($values);
 	}
-	
+
 	/**
 	 * Return a float type-formatted string.
-	 * 
+	 *
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
 	public function float($values) {
 		return 'float not null default ' . $values['default'];
 	}
-	
+
 	/**
 	 * Return a int type-formatted string
-	 * 
+	 *
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
@@ -1037,21 +1053,21 @@ class MSSQLDatabase extends SS_Database {
 		//We'll be using an 8 digit precision to keep it in line with the serial8 datatype for ID columns
 		return 'numeric(8) not null default ' . (int) $values['default'];
 	}
-	
+
 	/**
 	 * Return a datetime type-formatted string
 	 * For MS SQL, we simply return the word 'timestamp', no other parameters are necessary
-	 * 
+	 *
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
 	public function ss_datetime($values) {
 		return 'datetime null';
 	}
-	
+
 	/**
 	 * Return a text type-formatted string
-	 * 
+	 *
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
@@ -1059,20 +1075,20 @@ class MSSQLDatabase extends SS_Database {
 		$collation = self::$collation ? " COLLATE " . self::$collation : "";
 		return "nvarchar(max)$collation null";
 	}
-	
+
 	/**
 	 * Return a time type-formatted string.
-	 * 
+	 *
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
 	public function time($values){
 		return 'time null';
 	}
-	
+
 	/**
 	 * Return a varchar type-formatted string
-	 * 
+	 *
 	 * @params array $values Contains a tokenised list of info about this data type
 	 * @return string
 	 */
@@ -1080,13 +1096,13 @@ class MSSQLDatabase extends SS_Database {
 		$collation = self::$collation ? " COLLATE " . self::$collation : "";
 		return "nvarchar(" . $values['precision'] . ")$collation null";
 	}
-	
+
 	/**
 	 * Return a 4 digit numeric type.
 	 * @return string
 	 */
 	public function year($values) {
-		return 'numeric(4)'; 
+		return 'numeric(4)';
 	}
 
 	/**
@@ -1104,14 +1120,14 @@ class MSSQLDatabase extends SS_Database {
 			else return 'bigint not null';
 		}
 	}
-	
+
 	/**
 	 * Returns the SQL command to get all the tables in this database
 	 */
 	function allTablesSQL(){
 		return "SELECT \"name\" FROM \"sys\".\"tables\";";
 	}
-	
+
 	/**
 	 * Returns true if this table exists
 	 * @todo Make a proper implementation
@@ -1121,7 +1137,7 @@ class MSSQLDatabase extends SS_Database {
 		$value = DB::query("SELECT table_name FROM information_schema.tables WHERE table_name = '$SQL_tableName'")->value();
 		return (bool)$value;
 	}
-	
+
 	/**
 	 * Returns the values of the given enum field
 	 * NOTE: Experimental; introduced for db-abstraction and may changed before 2.4 is released.
@@ -1144,17 +1160,17 @@ class MSSQLDatabase extends SS_Database {
 	function now() {
 		return 'CURRENT_TIMESTAMP';
 	}
-	
+
 	/**
 	 * Returns the database-specific version of the random() function
 	 */
-	function random() {
+	function random(){
 		return 'RAND()';
 	}
-	
+
 	/**
 	 * This is a lookup table for data types.
-	 * 
+	 *
 	 * For instance, MSSQL uses 'BIGINT', while MySQL uses 'UNSIGNED'
 	 * and PostgreSQL uses 'INT'.
 	 */
@@ -1165,15 +1181,15 @@ class MSSQLDatabase extends SS_Database {
 		if(isset($values[$type])) return $values[$type];
 		else return '';
 	}
-	
+
 	/**
 	 * Convert a SQLQuery object into a SQL statement.
 	 */
 	public function sqlQueryToString(SQLQuery $sqlQuery) {
 		if (!$sqlQuery->from) return '';
-		
+
 		if($sqlQuery->orderby && strtoupper(trim($sqlQuery->orderby)) == 'RAND()') $sqlQuery->orderby = "NEWID()";
-		
+
 		//Get the limit and offset
 		$limit='';
 		$offset='0';
@@ -1181,7 +1197,7 @@ class MSSQLDatabase extends SS_Database {
 			$limit=$sqlQuery->limit['limit'];
 			if(isset($sqlQuery->limit['start']))
 				$offset=$sqlQuery->limit['start'];
-			
+
 		} else if(preg_match('/^([0-9]+) offset ([0-9]+)$/i', trim($sqlQuery->limit), $matches)) {
 			$limit = $matches[1];
 			$offset = $matches[2];
@@ -1194,7 +1210,7 @@ class MSSQLDatabase extends SS_Database {
 				$limit = $bits[0];
 			}
 		}
-		
+
 		$text = '';
 		$suffixText = '';
 		$nestedQuery = false;
@@ -1202,16 +1218,16 @@ class MSSQLDatabase extends SS_Database {
 		// DELETE queries
 		if($sqlQuery->delete) {
 			$text = 'DELETE ';
-			
+
 		// SELECT queries
 		} else {
 			$distinct = $sqlQuery->distinct ? "DISTINCT " : "";
-		
+
 			// If there's a limit but no offset, just use 'TOP X'
 			// rather than the more complex sub-select method
 			if ($limit != 0 && $offset == 0) {
 				$text = "SELECT $distinct TOP $limit";
-			
+
 			// If there's a limit and an offset, then we need to do a subselect
 			} else if($limit && $offset) {
 				if($sqlQuery->orderby) {
@@ -1229,7 +1245,7 @@ class MSSQLDatabase extends SS_Database {
 			} else {
 				$text = "SELECT $distinct";
 			}
-			
+
 			// Now add the columns to be selected
 			$text .= implode(", ", $sqlQuery->select);
 		}
@@ -1239,10 +1255,10 @@ class MSSQLDatabase extends SS_Database {
 		if($sqlQuery->groupby) $text .= " GROUP BY " . implode(", ", $sqlQuery->groupby);
 		if($sqlQuery->having) $text .= " HAVING ( " . implode(" ) AND ( ", $sqlQuery->having) . " )";
 		if(!$nestedQuery && $sqlQuery->orderby) $text .= " ORDER BY " . $sqlQuery->orderby;
-		
+
 		// $suffixText is used by the nested queries to create an offset limit
 		if($suffixText) $text .= $suffixText;
-		
+
 		return $text;
 	}
 
@@ -1251,10 +1267,11 @@ class MSSQLDatabase extends SS_Database {
 	 * @param string $value String to escape
 	 * @return string Escaped string
 	 */
-	function addslashes($value) {
-		$value = str_replace("'", "''", $value);
-		$value = str_replace("\0", "[NULL]", $value);
-		return $value;
+	function addslashes($value){
+    	$value=str_replace("'","''",$value);
+    	$value=str_replace("\0","[NULL]",$value);
+
+    	return $value;
 	}
 
 	/**
@@ -1269,7 +1286,7 @@ class MSSQLDatabase extends SS_Database {
 	 * The core search engine configuration.
 	 * Picks up the fulltext-indexed tables from the database and executes search on all of them.
 	 * Results are obtained as ID-ClassName pairs which is later used to reconstruct the DataObjectSet.
-	 * 
+	 *
 	 * @param array classesToSearch computes all descendants and includes them. Check is done via WHERE clause.
 	 * @param string $keywords Keywords as a space separated string
 	 * @return object DataObjectSet of result pages
@@ -1284,7 +1301,7 @@ class MSSQLDatabase extends SS_Database {
 			$allClassesToSearch = array_merge($allClassesToSearch, ClassInfo::dataClassesFor($class));
 		}
 		$allClassesToSearch = array_unique($allClassesToSearch);
-		
+
 		//Get a list of all the tables and columns we'll be searching on:
 		$fulltextColumns = DB::query('EXEC sp_help_fulltext_columns');
 		$queries = array();
@@ -1406,7 +1423,7 @@ class MSSQLDatabase extends SS_Database {
 		else {
 			$keywords = Convert::raw2sql(str_replace(array('&','|','!','"','\''), '', trim($keywords)));
 		}
-		
+
 		// Remove stopwords, concat with ANDs
 		$keywords = explode(' ', $keywords);
 		$keywords = self::removeStopwords($keywords);
@@ -1419,11 +1436,11 @@ class MSSQLDatabase extends SS_Database {
 
 		return "FREETEXTTABLE(\"$tableName\", ($fieldNames), '$keywords')";
 	}
-	
+
 	/**
 	 * Remove stopwords that would kill a MSSQL full-text query
 	 *
-	 * @param array $keywords 
+	 * @param array $keywords
 	 *
 	 * @return array $keywords with stopwords removed
 	 */
@@ -1435,14 +1452,14 @@ class MSSQLDatabase extends SS_Database {
 		}
 		return $goodKeywords;
 	}
-	
+
 	/**
 	 * Does this database support transactions?
 	 */
 	public function supportsTransactions(){
 		return $this->supportsTransactions;
 	}
-	
+
 	/**
 	 * This is a quick lookup to discover if the database supports particular extensions
 	 * Currently, MSSQL supports no extensions
@@ -1457,7 +1474,7 @@ class MSSQLDatabase extends SS_Database {
 		else
 			return false;
 	}
-	
+
 	/**
 	 * Start transaction. READ ONLY not supported.
 	 */
@@ -1469,14 +1486,14 @@ class MSSQLDatabase extends SS_Database {
 			if (!$result) $this->databaseError("Couldn't start the transaction.", E_USER_ERROR);
 		}
 	}
-	
+
 	/**
 	 * Create a savepoint that you can jump back to if you encounter problems
 	 */
 	public function transactionSavepoint($savepoint){
 		DB::query("SAVE TRANSACTION \"$savepoint\"");
 	}
-	
+
 	/**
 	 * Rollback or revert to a savepoint if your queries encounter problems
 	 * If you encounter a problem at any point during a transaction, you may
@@ -1494,7 +1511,7 @@ class MSSQLDatabase extends SS_Database {
 			}
 		}
 	}
-	
+
 	/**
 	 * Commit everything inside this transaction so far
 	 */
@@ -1565,9 +1582,9 @@ class MSSQLDatabase extends SS_Database {
 		}
 
 		return '(' . implode(' + ', $strings) . ')';
-		
+
 	}
-	
+
 	/**
 	 * Function to return an SQL datetime expression for MSSQL.
 	 * used for querying a datetime addition
@@ -1672,12 +1689,12 @@ class MSSQLQuery extends SS_Query {
 
 	public function __destruct() {
 		if(is_resource($this->handle)) {
-			if($this->mssql) {
-				mssql_free_result($this->handle);
-			} else {
-				sqlsrv_free_stmt($this->handle);
-			}
+		if($this->mssql) {
+			mssql_free_result($this->handle);
+		} else {
+			sqlsrv_free_stmt($this->handle);
 		}
+	}
 	}
 
 	public function seek($row) {
@@ -1692,7 +1709,6 @@ class MSSQLQuery extends SS_Query {
 
 	public function numRecords() {
 		if(!is_resource($this->handle)) return false;
-
 		if($this->mssql) {
 			return mssql_num_rows($this->handle);
 		} else {
@@ -1706,12 +1722,13 @@ class MSSQLQuery extends SS_Query {
 	}
 
 	public function nextRecord() {
+
 		if(!is_resource($this->handle)) return false;
 
 		// Coalesce rather than replace common fields.
 		$output = array();
 
-		if($this->mssql) {			
+		if($this->mssql) {
 			if($data = mssql_fetch_row($this->handle)) {
 				foreach($data as $columnIdx => $value) {
 					$columnName = mssql_field_name($this->handle, $columnIdx);
@@ -1733,7 +1750,7 @@ class MSSQLQuery extends SS_Query {
 				foreach($fields as $columnIdx => $field) {
 					$value = $data[$columnIdx];
 					if($value instanceof DateTime) $value = $value->format('Y-m-d H:i:s');
-					
+
 					// $value || !$ouput[$columnName] means that the *last* occurring value is shown
 					// !$ouput[$columnName] means that the *first* occurring value is shown
 					if(isset($value) || !isset($output[$field['Name']])) {
