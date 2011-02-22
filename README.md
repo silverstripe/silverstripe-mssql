@@ -1,5 +1,7 @@
 # SQL Server Database Module
 
+Allows SilverStripe to use SQL Server 2008 or SQL Server 2008 R2 database servers.
+
 ## Maintainer Contact
 
  * Sean Harvey (Nickname: halkyon)
