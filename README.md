@@ -2,6 +2,8 @@
 
 Allows SilverStripe to use SQL Server 2008 or SQL Server 2008 R2 database servers.
 
+More information can be found on the [extension page at silverstripe.org](http://www.silverstripe.org/microsoft-sql-server-database/).
+
 ## Maintainer Contact
 
  * Sean Harvey (Nickname: halkyon)
