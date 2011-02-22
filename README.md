@@ -51,4 +51,5 @@ A: Make sure you've got an entry in **/etc/freetds/freetds.conf** (or wheverever
 Then you can use "myserver" (the bit in square brackets above) as the server name when connecting to the database.
 
 **Note**: Use *tabs* not spaces when editing freetds.conf, otherwise it will not load the configuration you have specified!
+
 **Note**: Certain distributions of Linux use [SELinux](http://fedoraproject.org/wiki/SELinux) which could block access to your SQL Server database. A rule may need to be added to allow this traffic through.
