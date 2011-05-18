@@ -1186,8 +1186,6 @@ class MSSQLDatabase extends SS_Database {
 	 * Convert a SQLQuery object into a SQL statement.
 	 */
 	public function sqlQueryToString(SQLQuery $sqlQuery) {
-		if (!$sqlQuery->from) return '';
-
 		if($sqlQuery->orderby && strtoupper(trim($sqlQuery->orderby)) == 'RAND()') $sqlQuery->orderby = "NEWID()";
 
 		//Get the limit and offset
@@ -1250,7 +1248,7 @@ class MSSQLDatabase extends SS_Database {
 			$text .= implode(", ", $sqlQuery->select);
 		}
 
-		$text .= " FROM " . implode(" ", $sqlQuery->from);
+		if($sqlQuery->from) $text .= " FROM " . implode(" ", $sqlQuery->from);
 		if($sqlQuery->where) $text .= " WHERE (" . $sqlQuery->getFilter(). ")";
 		if($sqlQuery->groupby) $text .= " GROUP BY " . implode(", ", $sqlQuery->groupby);
 		if($sqlQuery->having) $text .= " HAVING ( " . implode(" ) AND ( ", $sqlQuery->having) . " )";
