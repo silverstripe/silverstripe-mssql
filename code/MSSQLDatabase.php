@@ -622,10 +622,10 @@ class MSSQLDatabase extends SS_Database {
 		if(isset($matches[1])) {
 			//We will prevent any changes being made to the ID column.  Primary key indexes will have a fit if we do anything here.
 			if($colName!='ID'){
-				$alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" $matches[1]";
 
 				// SET null / not null
 				if(!empty($matches[2])) $alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" $matches[1] $matches[2]";
+				else $alterCol .= ";\n$prefix ALTER COLUMN \"$colName\" $matches[1]";
 
 				// Add a default back
 				if(!empty($matches[3])) $alterCol .= ";\n$prefix ADD $matches[3] FOR \"$colName\"";
