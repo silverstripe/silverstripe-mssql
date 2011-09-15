@@ -1327,6 +1327,13 @@ class MSSQLDatabase extends SS_Database {
 			$where = null;
 			if(strpos($tableName, 'SiteTree') === 0) {
 				$where = array("\"$tableName\".\"ShowInSearch\"!=0");
+			} elseif(strpos($tableName, 'File') === 0) {
+				// File.ShowInSearch was added later, keep the database driver backwards compatible 
+				// by checking for its existence first
+				$fields = $this->fieldList($tableName);
+				if(array_key_exists('ShowInSearch', $fields)) {
+					$where = array("\"$tableName\".\"ShowInSearch\"!=0");
+				}
 			}
 
 			$queries[$tableName] = singleton($tableName)->extendedSQL($where);
