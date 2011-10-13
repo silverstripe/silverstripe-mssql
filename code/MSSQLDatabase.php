@@ -487,7 +487,6 @@ class MSSQLDatabase extends SS_Database {
 	 * @param $alteredIndexes Updated indexes, a map of index name => index type
 	 */
 	public function alterTable($tableName, $newFields = null, $newIndexes = null, $alteredFields = null, $alteredIndexes = null, $alteredOptions=null, $advancedOptions=null) {
-		$fieldSchemas = $indexSchemas = '';
 		$alterList = array();
 		$indexList = $this->indexList($tableName);
 
