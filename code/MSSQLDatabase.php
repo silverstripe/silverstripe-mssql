@@ -213,9 +213,17 @@ class MSSQLDatabase extends SS_Database {
 	 * This will set up the full text search capabilities.
 	 */
 	function createFullTextCatalog() {
-			$result = $this->query("SELECT name FROM sys.fulltext_catalogs WHERE name = 'ftCatalog';")->value();
-			if(!$result) $this->query("CREATE FULLTEXT CATALOG ftCatalog AS DEFAULT;");
-		}
+		$result = $this->fullTextCatalogExists();
+		if(!$result) $this->query('CREATE FULLTEXT CATALOG "ftCatalog" AS DEFAULT;');
+	}
+
+	/**
+	 * Check that a fulltext catalog has been created yet.
+	 * @return boolean
+	 */
+	public function fullTextCatalogExists() {
+		return (bool) $this->query("SELECT name FROM sys.fulltext_catalogs WHERE name = 'ftCatalog';")->value();
+	}
 
 	/**
 	 * Sleep until the catalog has been fully rebuilt. This is a busy wait designed for situations
@@ -422,9 +430,9 @@ class MSSQLDatabase extends SS_Database {
 		$databases = $this->allDatabaseNames();
 		foreach($databases as $dbname) {
 			if($dbname == $name) return true;
-			}
-		return false;
 		}
+		return false;
+	}
 
 	/**
 	 * Return all databases names from the server.
@@ -479,26 +487,20 @@ class MSSQLDatabase extends SS_Database {
 	 * @param $alteredIndexes Updated indexes, a map of index name => index type
 	 */
 	public function alterTable($tableName, $newFields = null, $newIndexes = null, $alteredFields = null, $alteredIndexes = null, $alteredOptions=null, $advancedOptions=null) {
-		$fieldSchemas = $indexSchemas = "";
+		$fieldSchemas = $indexSchemas = '';
 		$alterList = array();
 		$indexList = $this->indexList($tableName);
 
-		if($newFields) foreach($newFields as $k => $v) $alterList[] .= "ALTER TABLE \"$tableName\" ADD \"$k\" $v";
-
-		if($alteredFields) {
-			// fulltext indexes need to be dropped if alterting a table
-			if($this->fulltextIndexExists($tableName) === true) {
-				$alterList[] = "\nDROP FULLTEXT INDEX ON \"$tableName\";";
-			}
-
-			foreach($alteredFields as $k => $v) {
-				$val = $this->alterTableAlterColumn($tableName, $k, $v, $indexList);
-				if($val != '') $alterList[] .= $val;
-			}
+		// drop any fulltext indexes that exist on the table before altering the structure
+		if($this->fullTextIndexExists($tableName)) {
+			$alterList[] = "\nDROP FULLTEXT INDEX ON \"$tableName\";";
 		}
 
-		if($alteredIndexes) foreach($alteredIndexes as $k => $v) $alterList[] .= $this->getIndexSqlDefinition($tableName, $k, $v);
-		if($newIndexes) foreach($newIndexes as $k =>$v) $alterList[] .= $this->getIndexSqlDefinition($tableName, $k, $v);
+		if($newFields) foreach($newFields as $k => $v) $alterList[] = "ALTER TABLE \"$tableName\" ADD \"$k\" $v";
+
+		if($alteredFields) foreach($alteredFields as $k => $v) $alterList[] = $this->alterTableAlterColumn($tableName, $k, $v, $indexList);
+		if($alteredIndexes) foreach($alteredIndexes as $k => $v) $alterList[] = $this->getIndexSqlDefinition($tableName, $k, $v);
+		if($newIndexes) foreach($newIndexes as $k => $v) $alterList[] = $this->getIndexSqlDefinition($tableName, $k, $v);
 
 		if($alterList) {
 			foreach($alterList as $alteration) {
@@ -639,11 +641,10 @@ class MSSQLDatabase extends SS_Database {
 
 					//NOTE: 'with nocheck' seems to solve a few problems I've been having for modifying existing tables.
 					$alterCol .= ";\n$prefix WITH NOCHECK ADD CONSTRAINT \"{$tableName}_{$colName}_check\" $matches[4]";
-
-
 				}
 			}
 		}
+
 		return isset($alterCol) ? $alterCol : '';
 	}
 
@@ -840,20 +841,18 @@ class MSSQLDatabase extends SS_Database {
 
 			return "$drop CREATE INDEX $index ON \"" . $tableName . "\" (" . $indexes . ");";
 		} else {
-			//create a type-specific index
+			// create a type-specific index
 			if($indexSpec['type'] == 'fulltext') {
 				if($this->fullTextEnabled()) {
-					//Enable full text search.
+					// enable fulltext on this table
 					$this->createFullTextCatalog();
 					$primary_key = $this->getPrimaryKey($tableName);
 
 					$query = '';
-					if($this->fullTextIndexExists($tableName)) {
-						$query .= "\nDROP FULLTEXT INDEX ON \"$tableName\";";
-					}
 					if($primary_key) {
 						$query .= "CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
 					}
+
 					return $query;
 				}
 			}
@@ -1403,6 +1402,7 @@ class MSSQLDatabase extends SS_Database {
 	function fulltextIndexExists($tableName) {
 		// Special case for no full text index support
 		if(!$this->fullTextEnabled()) return null;
+
 		return (bool) $this->query("
 			SELECT 1 FROM sys.fulltext_indexes i
 			JOIN sys.objects o ON i.object_id = o.object_id
