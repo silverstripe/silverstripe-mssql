@@ -851,7 +851,9 @@ class MSSQLDatabase extends SS_Database {
 					if($this->fullTextIndexExists($tableName)) {
 						$query .= "\nDROP FULLTEXT INDEX ON \"$tableName\";";
 					}
-					$query .= "CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
+					if($primary_key) {
+						$query .= "CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
+					}
 					return $query;
 				}
 			}
