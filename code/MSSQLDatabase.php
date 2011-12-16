@@ -1290,8 +1290,15 @@ class MSSQLDatabase extends SS_Database {
 	 * @return object DataObjectSet of result pages
 	 */
 	public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
-		$results = new DataObjectSet();
-		if(!$this->fullTextEnabled()) return $results;
+		if(class_exists('PaginatedList')) {
+			if(isset($objects)) $results = new ArrayList($objects);
+			else $results = new ArrayList();
+		} else {
+			if(isset($objects)) $results = new DataObjectSet($objects);
+			else $results = new DataObjectSet();
+		}
+
+		if (!$this->fullTextEnabled()) return $results;
 		if (!in_array(substr($sortBy, 0, 9), array('"Relevanc', 'Relevance'))) user_error("Non-relevance sort not supported.", E_USER_ERROR);
 
 		$allClassesToSearch = array();
@@ -1321,14 +1328,14 @@ class MSSQLDatabase extends SS_Database {
 			$baseClass = ClassInfo::baseDataClass($tableName);
 
 			$join = $this->fullTextSearchMSSQL($tableName, $keywords);
-			if (!$join) return new DataObjectSet(); // avoid "Null or empty full-text predicate"
+			if (!$join) return $results; // avoid "Null or empty full-text predicate"
 
 			// Check if we need to add ShowInSearch
 			$where = null;
 			if(strpos($tableName, 'SiteTree') === 0) {
 				$where = array("\"$tableName\".\"ShowInSearch\"!=0");
 			} elseif(strpos($tableName, 'File') === 0) {
-				// File.ShowInSearch was added later, keep the database driver backwards compatible 
+				// File.ShowInSearch was added later, keep the database driver backwards compatible
 				// by checking for its existence first
 				$fields = $this->fieldList($tableName);
 				if(array_key_exists('ShowInSearch', $fields)) {
@@ -1336,13 +1343,18 @@ class MSSQLDatabase extends SS_Database {
 				}
 			}
 
-			$queries[$tableName] = singleton($tableName)->extendedSQL($where);
+			if(class_exists('DataList')) {
+				$queries[$tableName] = DataList::create($tableName)->where($where, '')->dataQuery()->query();
+			} else {
+				$queries[$tableName] = singleton($tableName)->extendedSQL($where);
+			}
+	
 			$queries[$tableName]->orderby = null;
 			
 			// Join with CONTAINSTABLE, a full text searcher that includes relevance factor
 			$queries[$tableName]->from = array("\"$tableName\" INNER JOIN $join AS \"ft\" ON \"$tableName\".\"ID\"=\"ft\".\"KEY\"");
 			// Join with the base class if needed, as we want to test agains the ClassName
-			if ($tableName!=$baseClass) {
+			if ($tableName != $baseClass) {
 				$queries[$tableName]->from[] = "INNER JOIN \"$baseClass\" ON  \"$baseClass\".\"ID\"=\"$tableName\".\"ID\"";
 			}
 			$queries[$tableName]->select = array("\"$tableName\".\"ID\"", "'$tableName' AS Source", "\"Rank\" AS \"Relevance\"");
@@ -1370,18 +1382,30 @@ class MSSQLDatabase extends SS_Database {
 
 		// Regenerate DataObjectSet - watch out, numRecords doesn't work on sqlsrv driver on Windows.
 		$current = -1;
-		$results = new DataObjectSet();
+		$objects = array();
 		foreach ($result as $row) {
 			$current++;
 
 			// Select a subset for paging
-			if ($current>=$start && $current<$start+$pageLength) {
-				$results->push(DataObject::get_by_id($row['Source'], $row['ID']));
+			if ($current >= $start && $current < $start + $pageLength) {
+				$objects[] = DataObject::get_by_id($row['Source'], $row['ID']);
 			}
 		}
-		$results->setPageLimits($start, $pageLength, $current+1);
 
-		return $results;
+		if(class_exists('PaginatedList')) {
+			if(isset($objects)) $results = new ArrayList($objects);
+			else $results = new ArrayList();
+			$list = new PaginatedList($results);
+			$list->setPageStart($start);
+			$list->setPageLength($pageLength);
+			$list->setTotalItems($current+1);
+			return $list;
+		} else {
+			if(isset($objects)) $results = new DataObjectSet($objects);
+			else $results = new DataObjectSet();
+			$results->setPageLimits($start, $pageLength, $current+1);
+			return $results;
+		}
 	}
 
 	/**
