@@ -33,9 +33,10 @@ The easiest way to get up and running with SQL Server on SilverStripe is using t
 
 A: Please ensure you have enabled TCP access using **SQL Server Configuration Manager** and [opened firewall ports](http://msdn.microsoft.com/en-us/library/ms175043.aspx).
 
-*Q: I just installed an instance of SQL Server that isn't the default, but it says that it cannot connect.*
+*Q: I just installed SQL Server, but it says that it cannot connect.*
 
-A: Make sure that your server name is made in this format: **(local)\SQLExpress**.The first part before the slash indicates the server host, or IP address. In this case, (local) indicates localhost, which is the same server PHP is running on. The second part is the SQL Server instance name to connect to, which is useful for multiple instances. One example of a non-default instance is **SQLExpress**.
+A: Sometimes SQL Server will be installed as a non-default instance name, e.g. "SQLExpress" instead of "MSSQLSERVER" (the default.)
+If this is the case, you'll need to declare the instance name when setting the server in your PHP database configuration. For example: **(local)\SQLExpress**. The first part before the slash indicates the server host, or IP address. In this case, (local) indicates localhost, which is the same server PHP is running on. The second part is the SQL Server instance name to connect to.
 
 *Q: I'm getting unicode SQL Server errors connecting to SQL Server database*
 
