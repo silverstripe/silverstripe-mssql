@@ -52,6 +52,10 @@ A: Make sure you've got an entry in **/etc/freetds/freetds.conf** (or wheverever
 
 Then you can use "myserver" (the bit in square brackets above) as the server name when connecting to the database.
 
+Alternatively, if you don't want to keep adding more entries to the freetds.conf to nominate more SQL Server locations,
+you can instead use the full the host/ip and port combination, such as "myserver:1433" (1433 being the default SQL Server port.)
+and ensure the "tds version = 8.0" is set globally in the freetds.conf file.
+
 **Note**: Use *tabs* not spaces when editing freetds.conf, otherwise it will not load the configuration you have specified!
 
 **Note**: Certain distributions of Linux use [SELinux](http://fedoraproject.org/wiki/SELinux) which could block access to your SQL Server database. A rule may need to be added to allow this traffic through.
