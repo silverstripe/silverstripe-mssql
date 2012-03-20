@@ -1569,6 +1569,17 @@ class MSSQLDatabase extends SS_Database {
 	}
 
 	/**
+	 * Overload the Database::prepStringForDB() method and include "N" prefix so unicode
+	 * strings are saved to the database correctly.
+	 *
+	 * @param string $string String to be encoded
+	 * @return string Processed string ready for DB
+	 */
+	public function prepStringForDB($string) {
+		return "N'" . Convert::raw2sql($string) . "'";
+	}
+
+	/**
 	 * Function to return an SQL datetime expression for MSSQL
 	 * used for querying a datetime in a certain format
 	 * @param string $date to be formated, can be either 'now', literal datetime like '1973-10-14 10:30:00' or field name, e.g. '"SiteTree"."Created"'
