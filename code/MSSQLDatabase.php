@@ -1464,7 +1464,7 @@ class MSSQLDatabase extends SS_Database {
 		if ($fields) $fieldNames = '"' . implode('", "', $fields) . '"';
 		else $fieldNames = "*";
 
-		return "FREETEXTTABLE(\"$tableName\", ($fieldNames), '$keywords')";
+		return "CONTAINSTABLE(\"$tableName\", ($fieldNames), '$keywords')";
 	}
 
 	/**
