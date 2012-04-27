@@ -1227,7 +1227,8 @@ class MSSQLDatabase extends SS_Database {
 			// If there's a limit and an offset, then we need to do a subselect
 			} else if($limit && $offset) {
 				if($sqlQuery->orderby) {
-					$rowNumber = "ROW_NUMBER() OVER (ORDER BY $sqlQuery->orderby) AS Number";
+					$orderByFields = (method_exists($sqlQuery, 'prepareOrderBy')) ? $sqlQuery->prepareOrderBy() : $sqlQuery->orderby;
+					$rowNumber = "ROW_NUMBER() OVER (ORDER BY $orderByFields) AS Number";
 				} else {
 					$firstCol = reset($sqlQuery->select);
 					$rowNumber = "ROW_NUMBER() OVER (ORDER BY $firstCol) AS Number";
