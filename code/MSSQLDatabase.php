@@ -1186,9 +1186,7 @@ class MSSQLDatabase extends SS_Database {
 	 * Convert a SQLQuery object into a SQL statement.
 	 */
 	public function sqlQueryToString(SQLQuery $sqlQuery) {
-		if($sqlQuery->orderby && strtoupper(trim($sqlQuery->orderby)) == 'RAND()') $sqlQuery->orderby = "NEWID()";
-
-		//Get the limit and offset
+		// get the limit and offset
 		$limit='';
 		$offset='0';
 		if(is_array($sqlQuery->limit)){
@@ -1248,11 +1246,38 @@ class MSSQLDatabase extends SS_Database {
 			$text .= implode(", ", $sqlQuery->select);
 		}
 
-		if($sqlQuery->from) $text .= " FROM " . implode(" ", $sqlQuery->from);
-		if($sqlQuery->where) $text .= " WHERE (" . $sqlQuery->getFilter(). ")";
-		if($sqlQuery->groupby) $text .= " GROUP BY " . implode(", ", $sqlQuery->groupby);
-		if($sqlQuery->having) $text .= " HAVING ( " . implode(" ) AND ( ", $sqlQuery->having) . " )";
-		if(!$nestedQuery && $sqlQuery->orderby) $text .= " ORDER BY " . $sqlQuery->orderby;
+		if($sqlQuery->from) $text .= ' FROM ' . implode(' ', $sqlQuery->from);
+
+		// method_exists is done here for legacy reasons, so we can use this on SS 2.4 and 3.0
+		if($sqlQuery->where) {
+			if(method_exists($sqlQuery, 'prepareSelect')) {
+				$text .= ' WHERE (' . $sqlQuery->prepareSelect() . ')';
+			} else {
+				$text .= ' WHERE (' . $sqlQuery->getFilter() . ')';
+			}
+		}
+		if($sqlQuery->groupby) {
+			if(method_exists($sqlQuery, 'prepareGroupBy')) {
+				$text .= ' GROUP BY ' . $sqlQuery->prepareGroupBy();
+			} else {
+				$text .= ' GROUP BY ' . implode(', ', $sqlQuery->groupby);
+			}
+		}
+		if($sqlQuery->having) {
+			if(method_exists($sqlQuery, 'prepareHaving')) {
+				$text .= ' HAVING ( ' . $sqlQuery->prepareHaving() . ' )';
+			} else {
+				$text .= ' HAVING ( ' . implode(' ) AND ( ', $sqlQuery->having) . ' )';
+			}
+		}
+			
+		if(!$nestedQuery && $sqlQuery->orderby) {
+			if(method_exists($sqlQuery, 'prepareOrderBy')) {
+				$text .= ' ORDER BY ' . $sqlQuery->prepareOrderBy();
+			} else {
+				$text .= ' ORDER BY ' . $sqlQuery->orderby;
+			}
+		}
 
 		// $suffixText is used by the nested queries to create an offset limit
 		if($suffixText) $text .= $suffixText;
