@@ -1251,8 +1251,8 @@ class MSSQLDatabase extends SS_Database {
 
 		// method_exists is done here for legacy reasons, so we can use this on SS 2.4 and 3.0
 		if($sqlQuery->where) {
-			if(method_exists($sqlQuery, 'prepareSelect')) {
-				$text .= ' WHERE (' . $sqlQuery->prepareSelect() . ')';
+			if(method_exists($sqlQuery, 'prepareWhere')) {
+				$text .= ' WHERE (' . $sqlQuery->prepareWhere() . ')';
 			} else {
 				$text .= ' WHERE (' . $sqlQuery->getFilter() . ')';
 			}
