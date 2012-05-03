@@ -1214,8 +1214,6 @@ class MSSQLDatabase extends SS_Database {
 		// DELETE queries
 		if($sqlQuery->delete) {
 			$text = 'DELETE ';
-
-		// SELECT queries
 		} else {
 			$distinct = $sqlQuery->distinct ? "DISTINCT " : "";
 
@@ -1227,10 +1225,11 @@ class MSSQLDatabase extends SS_Database {
 			// If there's a limit and an offset, then we need to do a subselect
 			} else if($limit && $offset) {
 				if($sqlQuery->orderby) {
-					$orderByFields = (method_exists($sqlQuery, 'prepareOrderBy')) ? $sqlQuery->prepareOrderBy() : $sqlQuery->orderby;
+					$orderByFields = $sqlQuery->prepareOrderBy();
 					$rowNumber = "ROW_NUMBER() OVER (ORDER BY $orderByFields) AS Number";
 				} else {
-					$firstCol = reset($sqlQuery->select);
+					$selects = $sqlQuery->itemisedSelect();
+					$firstCol = reset($selects);
 					$rowNumber = "ROW_NUMBER() OVER (ORDER BY $firstCol) AS Number";
 				}
 				$text = "SELECT * FROM ( SELECT $distinct$rowNumber, ";
@@ -1244,40 +1243,16 @@ class MSSQLDatabase extends SS_Database {
 			}
 
 			// Now add the columns to be selected
-			$text .= implode(", ", $sqlQuery->select);
+			$text .= $sqlQuery->prepareSelect();
 		}
 
 		if($sqlQuery->from) $text .= ' FROM ' . implode(' ', $sqlQuery->from);
+		if($sqlQuery->where) $text .= ' WHERE (' . $sqlQuery->prepareWhere() . ')';
+		if($sqlQuery->groupby) $text .= ' GROUP BY ' . $sqlQuery->prepareGroupBy();
+		if($sqlQuery->having) $text .= ' HAVING ( ' . $sqlQuery->prepareHaving() . ' )';
 
-		// method_exists is done here for legacy reasons, so we can use this on SS 2.4 and 3.0
-		if($sqlQuery->where) {
-			if(method_exists($sqlQuery, 'prepareWhere')) {
-				$text .= ' WHERE (' . $sqlQuery->prepareWhere() . ')';
-			} else {
-				$text .= ' WHERE (' . $sqlQuery->getFilter() . ')';
-			}
-		}
-		if($sqlQuery->groupby) {
-			if(method_exists($sqlQuery, 'prepareGroupBy')) {
-				$text .= ' GROUP BY ' . $sqlQuery->prepareGroupBy();
-			} else {
-				$text .= ' GROUP BY ' . implode(', ', $sqlQuery->groupby);
-			}
-		}
-		if($sqlQuery->having) {
-			if(method_exists($sqlQuery, 'prepareHaving')) {
-				$text .= ' HAVING ( ' . $sqlQuery->prepareHaving() . ' )';
-			} else {
-				$text .= ' HAVING ( ' . implode(' ) AND ( ', $sqlQuery->having) . ' )';
-			}
-		}
-			
 		if(!$nestedQuery && $sqlQuery->orderby) {
-			if(method_exists($sqlQuery, 'prepareOrderBy')) {
-				$text .= ' ORDER BY ' . $sqlQuery->prepareOrderBy();
-			} else {
-				$text .= ' ORDER BY ' . $sqlQuery->orderby;
-			}
+			$text .= ' ORDER BY ' . $sqlQuery->prepareOrderBy();
 		}
 
 		// $suffixText is used by the nested queries to create an offset limit
@@ -1803,7 +1778,6 @@ class MSSQLQuery extends SS_Query {
 	}
 
 	public function nextRecord() {
-
 		if(!is_resource($this->handle)) return false;
 
 		// Coalesce rather than replace common fields.
@@ -1826,7 +1800,7 @@ class MSSQLQuery extends SS_Query {
 				return $output;
 			}
 		} else {
-			if($this->handle && $data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_NUMERIC)) {
+			if($data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_NUMERIC)) {
 				$fields = sqlsrv_field_metadata($this->handle);
 				foreach($fields as $columnIdx => $field) {
 					$value = $data[$columnIdx];
@@ -1842,10 +1816,8 @@ class MSSQLQuery extends SS_Query {
 				return $output;
 			} else {
 				// Free the handle if there are no more results - sqlsrv crashes if there are too many handles
-				if($this->handle) {
-					sqlsrv_free_stmt($this->handle);
-					$this->handle = null;
-				}
+				sqlsrv_free_stmt($this->handle);
+				$this->handle = null;
 			}
 		}
 
