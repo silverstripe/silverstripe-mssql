@@ -1291,13 +1291,8 @@ class MSSQLDatabase extends SS_Database {
 	 * @return object DataObjectSet of result pages
 	 */
 	public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false) {
-		if(class_exists('PaginatedList')) {
-			if(isset($objects)) $results = new ArrayList($objects);
-			else $results = new ArrayList();
-		} else {
-			if(isset($objects)) $results = new DataObjectSet($objects);
-			else $results = new DataObjectSet();
-		}
+		if(isset($objects)) $results = new ArrayList($objects);
+		else $results = new ArrayList();
 
 		if (!$this->fullTextEnabled()) return $results;
 		if (!in_array(substr($sortBy, 0, 9), array('"Relevanc', 'Relevance'))) user_error("Non-relevance sort not supported.", E_USER_ERROR);
@@ -1344,12 +1339,7 @@ class MSSQLDatabase extends SS_Database {
 				}
 			}
 
-			if(class_exists('DataList')) {
-				$queries[$tableName] = DataList::create($tableName)->where($where, '')->dataQuery()->query();
-			} else {
-				$queries[$tableName] = singleton($tableName)->extendedSQL($where);
-			}
-	
+			$queries[$tableName] = DataList::create($tableName)->where($where, '')->dataQuery()->query();
 			$queries[$tableName]->orderby = null;
 			
 			// Join with CONTAINSTABLE, a full text searcher that includes relevance factor
@@ -1358,7 +1348,11 @@ class MSSQLDatabase extends SS_Database {
 			if ($tableName != $baseClass) {
 				$queries[$tableName]->from[] = "INNER JOIN \"$baseClass\" ON  \"$baseClass\".\"ID\"=\"$tableName\".\"ID\"";
 			}
-			$queries[$tableName]->select = array("\"$tableName\".\"ID\"", "'$tableName' AS Source", "\"Rank\" AS \"Relevance\"");
+
+			$queries[$tableName]->select(array());
+			$queries[$tableName]->select(array("\"$tableName\".\"ID\""));
+			$queries[$tableName]->selectField("'$tableName'", 'Source');
+			$queries[$tableName]->selectField('Rank', 'Relevance');
 			if ($extraFilter) {
 				$queries[$tableName]->where[] = $extraFilter;
 			}
@@ -1745,12 +1739,12 @@ class MSSQLQuery extends SS_Query {
 
 	public function __destruct() {
 		if(is_resource($this->handle)) {
-		if($this->mssql) {
-			mssql_free_result($this->handle);
-		} else {
-			sqlsrv_free_stmt($this->handle);
+			if($this->mssql) {
+				mssql_free_result($this->handle);
+			} else {
+				sqlsrv_free_stmt($this->handle);
+			}
 		}
-	}
 	}
 
 	public function seek($row) {
@@ -1765,6 +1759,7 @@ class MSSQLQuery extends SS_Query {
 
 	public function numRecords() {
 		if(!is_resource($this->handle)) return false;
+
 		if($this->mssql) {
 			return mssql_num_rows($this->handle);
 		} else {
@@ -1780,40 +1775,13 @@ class MSSQLQuery extends SS_Query {
 	public function nextRecord() {
 		if(!is_resource($this->handle)) return false;
 
-		// Coalesce rather than replace common fields.
-		$output = array();
-
 		if($this->mssql) {
-			if($data = mssql_fetch_row($this->handle)) {
-				foreach($data as $columnIdx => $value) {
-					$columnName = mssql_field_name($this->handle, $columnIdx);
-					// There are many places in the framework that expect the ID to be a string, not a double
-					// Do not set this to an integer, or it will cause failures in many tests that expect a string
-					if($columnName == 'ID') $value = (string) $value;
-					// $value || !$ouput[$columnName] means that the *last* occurring value is shown
-					// !$ouput[$columnName] means that the *first* occurring value is shown
-					if(isset($value) || !isset($output[$columnName])) {
-						$output[$columnName] = $value;
-					}
-				}
-
-				return $output;
+			if($data = mssql_fetch_assoc($this->handle)) {
+				return $data;
 			}
 		} else {
-			if($data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_NUMERIC)) {
-				$fields = sqlsrv_field_metadata($this->handle);
-				foreach($fields as $columnIdx => $field) {
-					$value = $data[$columnIdx];
-					if($value instanceof DateTime) $value = $value->format('Y-m-d H:i:s');
-
-					// $value || !$ouput[$columnName] means that the *last* occurring value is shown
-					// !$ouput[$columnName] means that the *first* occurring value is shown
-					if(isset($value) || !isset($output[$field['Name']])) {
-						$output[$field['Name']] = $value;
-					}
-				}
-
-				return $output;
+			if($data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_ASSOC)) {
+				return $data;
 			} else {
 				// Free the handle if there are no more results - sqlsrv crashes if there are too many handles
 				sqlsrv_free_stmt($this->handle);
