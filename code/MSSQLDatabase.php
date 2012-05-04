@@ -1781,6 +1781,12 @@ class MSSQLQuery extends SS_Query {
 			}
 		} else {
 			if($data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_ASSOC)) {
+
+				// special case for sqlsrv - date values are DateTime coming out of the sqlsrv drivers,
+				// so we convert to the usual Y-m-d H:i:s value!
+				foreach($data as $name => $value) {
+					if($value instanceof DateTime) $data[$name] = $value->format('Y-m-d H:i:s');
+				}
 				return $data;
 			} else {
 				// Free the handle if there are no more results - sqlsrv crashes if there are too many handles
