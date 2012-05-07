@@ -1184,22 +1184,31 @@ class MSSQLDatabase extends SS_Database {
 
 	/**
 	 * Convert a SQLQuery object into a SQL statement.
+	 *
+	 * Needs to be overloaded from {@link Database} because MSSQL has
+	 * a very specific way of limiting results from a query.
+	 *
+	 * @param SQLQuery
+	 * @return string SQL text
 	 */
-	public function sqlQueryToString(SQLQuery $sqlQuery) {
+	public function sqlQueryToString(SQLQuery $query) {
 		// get the limit and offset
-		$limit='';
-		$offset='0';
-		if(is_array($sqlQuery->limit)){
-			$limit=$sqlQuery->limit['limit'];
-			if(isset($sqlQuery->limit['start']))
-				$offset=$sqlQuery->limit['start'];
+		$limit = '';
+		$offset = '0';
+		$text = '';
+		$suffixText = '';
+		$nestedQuery = false;
 
-		} else if(preg_match('/^([0-9]+) offset ([0-9]+)$/i', trim($sqlQuery->limit), $matches)) {
+		if(is_array($query->getLimit())) {
+			$limitArr = $query->getLimit();
+			$limit = $limitArr['limit'];
+			if(isset($limitArr['start'])) $offset = $limitArr['start'];
+		} else if(preg_match('/^([0-9]+) offset ([0-9]+)$/i', trim($query->getLimit()), $matches)) {
 			$limit = $matches[1];
 			$offset = $matches[2];
 		} else {
 			//could be a comma delimited string
-			$bits=explode(',', $sqlQuery->limit);
+			$bits = explode(',', $query->getLimit());
 			if(sizeof($bits) > 1) {
 				list($offset, $limit) = $bits;
 			} else {
@@ -1207,15 +1216,11 @@ class MSSQLDatabase extends SS_Database {
 			}
 		}
 
-		$text = '';
-		$suffixText = '';
-		$nestedQuery = false;
-
 		// DELETE queries
-		if($sqlQuery->delete) {
+		if($query->getDelete()) {
 			$text = 'DELETE ';
 		} else {
-			$distinct = $sqlQuery->distinct ? "DISTINCT " : "";
+			$distinct = $query->getDistinct() ? 'DISTINCT ' : '';
 
 			// If there's a limit but no offset, just use 'TOP X'
 			// rather than the more complex sub-select method
@@ -1224,15 +1229,15 @@ class MSSQLDatabase extends SS_Database {
 
 			// If there's a limit and an offset, then we need to do a subselect
 			} else if($limit && $offset) {
-				if($sqlQuery->orderby) {
-					$orderByFields = $sqlQuery->prepareOrderBy();
-					$rowNumber = "ROW_NUMBER() OVER (ORDER BY $orderByFields) AS Number";
+				if($query->getOrderBy()) {
+					$orderByClause = $this->sqlOrderByToString($query->getOrderBy());
+					$rowNumber = "ROW_NUMBER() OVER ($orderByClause) AS Number";
 				} else {
-					$selects = $sqlQuery->itemisedSelect();
+					$selects = $query->getSelect();
 					$firstCol = reset($selects);
 					$rowNumber = "ROW_NUMBER() OVER (ORDER BY $firstCol) AS Number";
 				}
-				$text = "SELECT * FROM ( SELECT $distinct$rowNumber, ";
+				$text = "SELECT * FROM (SELECT $distinct$rowNumber, ";
 				$suffixText .= ") AS Numbered WHERE Number BETWEEN " . ($offset+1) ." AND " . ($offset+$limit)
 					. " ORDER BY Number";
 				$nestedQuery = true;
@@ -1243,16 +1248,18 @@ class MSSQLDatabase extends SS_Database {
 			}
 
 			// Now add the columns to be selected
-			$text .= $sqlQuery->prepareSelect();
+			// strip off the SELECT text as it gets done above instead
+			$text .= trim(str_replace('SELECT' , '', $this->sqlSelectToString($query->getSelect())));
 		}
 
-		if($sqlQuery->from) $text .= ' FROM ' . implode(' ', $sqlQuery->from);
-		if($sqlQuery->where) $text .= ' WHERE (' . $sqlQuery->prepareWhere() . ')';
-		if($sqlQuery->groupby) $text .= ' GROUP BY ' . $sqlQuery->prepareGroupBy();
-		if($sqlQuery->having) $text .= ' HAVING ( ' . $sqlQuery->prepareHaving() . ' )';
+		if($query->getFrom()) $text .= $this->sqlFromToString($query->getFrom());
+		if($query->getWhere()) $text .= $this->sqlWhereToString($query->getWhere(), $query->getConnective());
 
-		if(!$nestedQuery && $sqlQuery->orderby) {
-			$text .= ' ORDER BY ' . $sqlQuery->prepareOrderBy();
+		// these clauses only make sense in SELECT queries, not DELETE
+		if(!$query->getDelete()) {
+			if($query->getGroupBy()) $text .= $this->sqlGroupByToString($query->getGroupBy());
+			if($query->getHaving()) $text .= $this->sqlHavingToString($query->getHaving());
+			if($query->getOrderBy() && !$nestedQuery) $text .= $this->sqlOrderByToString($query->getOrderBy());
 		}
 
 		// $suffixText is used by the nested queries to create an offset limit
@@ -1340,24 +1347,23 @@ class MSSQLDatabase extends SS_Database {
 			}
 
 			$queries[$tableName] = DataList::create($tableName)->where($where, '')->dataQuery()->query();
-			$queries[$tableName]->orderby = null;
+			$queries[$tableName]->setOrderBy(array());
 			
 			// Join with CONTAINSTABLE, a full text searcher that includes relevance factor
-			$queries[$tableName]->from = array("\"$tableName\" INNER JOIN $join AS \"ft\" ON \"$tableName\".\"ID\"=\"ft\".\"KEY\"");
+			$queries[$tableName]->setFrom(array("\"$tableName\" INNER JOIN $join AS \"ft\" ON \"$tableName\".\"ID\"=\"ft\".\"KEY\""));
 			// Join with the base class if needed, as we want to test agains the ClassName
 			if ($tableName != $baseClass) {
-				$queries[$tableName]->from[] = "INNER JOIN \"$baseClass\" ON  \"$baseClass\".\"ID\"=\"$tableName\".\"ID\"";
+				$queries[$tableName]->setFrom("INNER JOIN \"$baseClass\" ON  \"$baseClass\".\"ID\"=\"$tableName\".\"ID\"");
 			}
 
-			$queries[$tableName]->select(array());
-			$queries[$tableName]->select(array("\"$tableName\".\"ID\""));
+			$queries[$tableName]->setSelect(array("\"$tableName\".\"ID\""));
 			$queries[$tableName]->selectField("'$tableName'", 'Source');
 			$queries[$tableName]->selectField('Rank', 'Relevance');
 			if ($extraFilter) {
-				$queries[$tableName]->where[] = $extraFilter;
+				$queries[$tableName]->addWhere($extraFilter);
 			}
 			if (count($allClassesToSearch)) {
-				$queries[$tableName]->where[] = "\"$baseClass\".\"ClassName\" IN ('".implode($allClassesToSearch, "', '")."')";
+				$queries[$tableName]->addWhere("\"$baseClass\".\"ClassName\" IN ('".implode($allClassesToSearch, "', '")."')");
 			}
 			// Reset the parameters that would get in the way
 
@@ -1387,20 +1393,13 @@ class MSSQLDatabase extends SS_Database {
 			}
 		}
 
-		if(class_exists('PaginatedList')) {
-			if(isset($objects)) $results = new ArrayList($objects);
-			else $results = new ArrayList();
-			$list = new PaginatedList($results);
-			$list->setPageStart($start);
-			$list->setPageLength($pageLength);
-			$list->setTotalItems($current+1);
-			return $list;
-		} else {
-			if(isset($objects)) $results = new DataObjectSet($objects);
-			else $results = new DataObjectSet();
-			$results->setPageLimits($start, $pageLength, $current+1);
-			return $results;
-		}
+		if(isset($objects)) $results = new ArrayList($objects);
+		else $results = new ArrayList();
+		$list = new PaginatedList($results);
+		$list->setPageStart($start);
+		$list->setPageLength($pageLength);
+		$list->setTotalItems($current+1);
+		return $list;
 	}
 
 	/**
