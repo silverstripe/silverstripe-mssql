@@ -1201,7 +1201,7 @@ class MSSQLDatabase extends SS_Database {
 
 		if(is_array($query->getLimit())) {
 			$limitArr = $query->getLimit();
-			$limit = $limitArr['limit'];
+			if(isset($limitArr['limit'])) $limit = $limitArr['limit'];
 			if(isset($limitArr['start'])) $offset = $limitArr['start'];
 		} else if(preg_match('/^([0-9]+) offset ([0-9]+)$/i', trim($query->getLimit()), $matches)) {
 			$limit = $matches[1];
