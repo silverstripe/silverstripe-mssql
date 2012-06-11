@@ -38,7 +38,7 @@ A: Please ensure you have enabled TCP access using **SQL Server Configuration Ma
 A: Sometimes SQL Server will be installed as a non-default instance name, e.g. "SQLExpress" instead of "MSSQLSERVER" (the default.)
 If this is the case, you'll need to declare the instance name when setting the server in your PHP database configuration. For example: **(local)\SQLExpress**. The first part before the slash indicates the server host, or IP address. In this case, (local) indicates localhost, which is the same server PHP is running on. The second part is the SQL Server instance name to connect to.
 
-*Q: I'm getting unicode SQL Server errors connecting to SQL Server database*
+*Q: I'm getting unicode SQL Server errors connecting to SQL Server database (e.g. Unicode data in a Unicode-only collation or ntext data cannot be sent to clients using DB-Library (such as ISQL) or ODBC version 3.7 or earlier)*
 
 A: If you are using FreeTDS make sure you're using TDS version 8.0 in **/etc/freetds/freetds.conf** (or wherever it's installed). If on Windows, ensure you use the [SQL Server Driver for PHP](http://www.microsoft.com/downloads/en/details.aspx?displaylang=en&FamilyID=ccdf728b-1ea0-48a8-a84a-5052214caad9) and **NOT** the mssql drivers provided by PHP.
 
