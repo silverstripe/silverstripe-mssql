@@ -1725,6 +1725,12 @@ class MSSQLQuery extends SS_Query {
 	private $mssql = null;
 
 	/**
+	 * A list of field meta-data, such as column name and data type.
+	 * @var array
+	 */
+	private $fields = array();
+
+	/**
 	 * Hook the result-set given into a Query class, suitable for use by sapphire.
 	 * @param database The database object that created this query.
 	 * @param handle the internal mssql handle that is points to the resultset.
@@ -1733,6 +1739,15 @@ class MSSQLQuery extends SS_Query {
 		$this->database = $database;
 		$this->handle = $handle;
 		$this->mssql = $mssql;
+
+		// build a list of field meta-data for this query we'll use in nextRecord()
+		// doing it here once saves us from calling mssql_fetch_field() in nextRecord()
+		// potentially hundreds of times, which is unnecessary.
+		if($this->mssql && is_resource($this->handle)) {
+			for($i = 0; $i < mssql_num_fields($handle); $i++) {
+				$this->fields[$i] = mssql_fetch_field($handle, $i);
+			}
+		}
 	}
 
 	public function __destruct() {
@@ -1776,7 +1791,7 @@ class MSSQLQuery extends SS_Query {
 		if($this->mssql) {
 			if($row = mssql_fetch_row($this->handle)) {
 				foreach($row as $i => $value) {
-					$field = mssql_fetch_field($this->handle, $i);
+					$field = $this->fields[$i];
 
 					// fix datetime formatting from format "Jan  1 2012 12:00:00:000AM" to "2012-01-01 12:00:00"
 					// strtotime doesn't understand this format, so we need to do some modification of the value first
