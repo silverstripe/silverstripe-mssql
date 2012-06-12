@@ -983,7 +983,7 @@ class MSSQLDatabase extends SS_Database {
 	 * @return string
 	 */
 	public function date($values) {
-		return 'datetime null';
+		return 'date null';
 	}
 
 	/**
@@ -1221,7 +1221,6 @@ class MSSQLDatabase extends SS_Database {
 			$text = 'DELETE ';
 		} else {
 			$distinct = $query->getDistinct() ? 'DISTINCT ' : '';
-
 			// If there's a limit but no offset, just use 'TOP X'
 			// rather than the more complex sub-select method
 			if ($limit != 0 && $offset == 0) {
@@ -1775,7 +1774,20 @@ class MSSQLQuery extends SS_Query {
 		if(!is_resource($this->handle)) return false;
 
 		if($this->mssql) {
-			if($data = mssql_fetch_assoc($this->handle)) {
+			if($row = mssql_fetch_row($this->handle)) {
+				foreach($row as $i => $value) {
+					$field = mssql_fetch_field($this->handle, $i);
+
+					// fix datetime formatting from format "Jan  1 2012 12:00:00:000AM" to "2012-01-01 12:00:00"
+					// strtotime doesn't understand this format, so we need to do some modification of the value first
+					if($field->type == 'datetime' && $value) {
+						$value = date('Y-m-d H:i:s', strtotime(preg_replace('/:[0-9][0-9][0-9]([ap]m)$/i', ' \\1', $value)));
+					}
+
+					if(isset($value) || !isset($data[$field->name])) {
+						$data[$field->name] = $value;
+					}
+				}
 				return $data;
 			}
 		} else {

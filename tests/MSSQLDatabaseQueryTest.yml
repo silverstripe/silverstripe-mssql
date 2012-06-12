@@ -1,0 +1,5 @@
+MSSQLDatabaseQueryTestDataObject:
+   test-data-1:
+      TestDate: 2012-01-01
+      TestDatetime: 2012-01-01 10:30:00
+
