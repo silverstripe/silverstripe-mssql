@@ -830,9 +830,9 @@ class MSSQLDatabase extends SS_Database {
 	 * Return SQL for dropping and recreating an index
 	 */
 	protected function getIndexSqlDefinition($tableName, $indexName, $indexSpec) {
-		$index = 'ix_' . $tableName . '_' . $indexName;
+		$index = 'ix_' . str_replace('\\', '_', $tableName) . '_' . $indexName;
 		$drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index') DROP INDEX $index ON \"" . $tableName . "\";";
-
+		
 		if(!is_array($indexSpec)) {
 			$indexSpec=trim($indexSpec, '()');
 			return "$drop CREATE INDEX $index ON \"" . $tableName . "\" (" . $indexSpec . ");";
