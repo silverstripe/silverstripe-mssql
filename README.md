@@ -40,18 +40,19 @@ If this is the case, you'll need to declare the instance name when setting the s
 
 *Q: I'm getting unicode SQL Server errors connecting to SQL Server database (e.g. Unicode data in a Unicode-only collation or ntext data cannot be sent to clients using DB-Library (such as ISQL) or ODBC version 3.7 or earlier)*
 
-A: If you are using FreeTDS make sure you're using TDS version 8.0 in **/etc/freetds/freetds.conf** (or wherever it's installed). If on Windows, ensure you use the [SQL Server Driver for PHP](http://www.microsoft.com/downloads/en/details.aspx?displaylang=en&FamilyID=ccdf728b-1ea0-48a8-a84a-5052214caad9) and **NOT** the mssql drivers provided by PHP.
+A: If you are using FreeTDS make sure you're using TDS version 8.0 in **freetds.conf**. If on Windows, ensure you use the [SQL Server Driver for PHP](http://www.microsoft.com/downloads/en/details.aspx?displaylang=en&FamilyID=ccdf728b-1ea0-48a8-a84a-5052214caad9) and **NOT** the mssql drivers provided by PHP.
 
 *Q: Using FreeTDS I can't connect to my SQL Server database. An error in PHP says the server doesn't exist*
 
-A: Make sure you've got an entry in **/etc/freetds/freetds.conf** (or wheverever it's installed) that points to your server. For example:
+A: Make sure you've got an entry in **/etc/freetds/freetds.conf** that points to your server. For example:
 
 	[myserver]
-	   host = myserver.mydomain.com
-	   port = 1433
-	   tds version = 8.0
+		host = myserver.mydomain.com
+		port = 1433
+		tds version = 8.0
 
 Then you can use "myserver" (the bit in square brackets above) as the server name when connecting to the database.
+Note that if you're running Macports, the file is located in **/opt/local/etc/freetds/freetds.conf**.
 
 Alternatively, if you don't want to keep adding more entries to the freetds.conf to nominate more SQL Server locations,
 you can instead use the full the host/ip and port combination, such as "myserver:1433" (1433 being the default SQL Server port.)
