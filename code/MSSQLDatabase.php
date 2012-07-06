@@ -267,6 +267,10 @@ class MSSQLDatabase extends SS_Database {
 		return true;
 	}
 
+	public function supportsTimezoneOverride() {
+		return true;
+	}
+
 	/**
 	 * Get the version of MSSQL.
 	 * @return string
