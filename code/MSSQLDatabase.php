@@ -858,7 +858,7 @@ class MSSQLDatabase extends SS_Database {
 			}
 
 			if($indexSpec['type'] == 'unique') {
-				if(!is_array($indexSpec['value'])) $columns = preg_split('/ *, */', trim($indexSpec['value']));
+				if(!is_array($indexSpec['value'])) $columns = preg_split('/"? *, *"?/', trim(trim($indexSpec['value']), '"'));
 				else $columns = $indexSpec['value'];
 				$SQL_columnList = '"' . implode('", "', $columns) . '"';
 
