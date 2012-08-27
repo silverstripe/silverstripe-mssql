@@ -860,7 +860,7 @@ class MSSQLDatabase extends SS_Database {
 			if($indexSpec['type'] == 'unique') {
 				if(!is_array($indexSpec['value'])) $columns = preg_split('/ *, */', trim($indexSpec['value']));
 				else $columns = $indexSpec['value'];
-				$SQL_columnList = '"' . implode('", "', $columns) . '"';
+				$SQL_columnList = implode(', ', $columns);
 
 				return "$drop CREATE UNIQUE INDEX $index ON \"" . $tableName . "\" ($SQL_columnList);";
 			}
