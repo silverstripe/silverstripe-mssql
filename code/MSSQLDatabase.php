@@ -1399,6 +1399,7 @@ class MSSQLDatabase extends SS_Database {
 		$list->setPageStart($start);
 		$list->setPageLength($pageLength);
 		$list->setTotalItems($current+1);
+		$list->setLimitItems(false); // We have limited the search results above
 		return $list;
 	}
 
