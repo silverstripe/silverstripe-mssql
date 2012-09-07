@@ -9,7 +9,7 @@ class MSSQLDatabaseQueryTest extends SapphireTest {
 
 	public function testDateValueFormatting() {
 		$obj = $this->objFromFixture('MSSQLDatabaseQueryTestDataObject', 'test-data-1');
-		$this->assertEquals('2012-01-01', $obj->TestDate, 'Date field value is formatted correctly (Y-m-d)');
+		$this->assertEquals('2012-01-01', date('Y-m-d', strtotime($obj->TestDate)), 'Date field value is formatted correctly (Y-m-d)');
 	}
 
 	public function testDatetimeValueFormatting() {
