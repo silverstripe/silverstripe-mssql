@@ -1,0 +1,16 @@
+{
+	"name": "silverstripe/mssql",
+	"description": "Allows SilverStripe to use SQL Server 2008 or SQL Server 2008 R2 database servers.",
+	"type": "silverstripe-module",
+	"keywords": ["silverstripe", "mssql", "database"],
+	"authors": [
+	{
+		"name": "Sean Harvey",
+		"email": "sean@silverstripe.com"
+	}
+	],
+	"require":
+	{
+		"silverstripe/framework": ">=2.4"
+	}
+}
