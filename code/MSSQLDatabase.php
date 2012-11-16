@@ -1500,13 +1500,6 @@ class MSSQLDatabase extends SS_Database {
 	}
 	
 	/**
-	 * @deprecated Use transactionStart() (method required for 2.4.x)
-	 */
-	public function startTransaction($transaction_mode=false, $session_characteristics=false){
-		$this->transactionStart($transaction_mode, $session_characteristics);
-	}
-
-	/**
 	 * Start transaction. READ ONLY not supported.
 	 */
 	public function transactionStart($transaction_mode=false, $session_characteristics=false){
@@ -1543,13 +1536,6 @@ class MSSQLDatabase extends SS_Database {
 		}
 	}
 	
-	/**
-	 * @deprecated Use transactionEnd() (method required for 2.4.x)
-	 */
-	public function endTransaction(){
-		$this->transactionEnd();
-	}
-
 	/**
 	 * Commit everything inside this transaction so far
 	 */
