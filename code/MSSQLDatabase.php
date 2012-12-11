@@ -1560,6 +1560,50 @@ class MSSQLDatabase extends SS_Database {
 	}
 
 	/**
+	 * Generate a WHERE clause for text matching.
+	 * 
+	 * @param String $field Quoted field name
+	 * @param String $value Escaped search. Can include percentage wildcards.
+	 * @param boolean $exact Exact matches or wildcard support.
+	 * @param boolean $negate Negate the clause.
+	 * @param boolean $caseSensitive Enforce case sensitivity if TRUE or FALSE.
+	 *                               Stick with default collation if set to NULL.
+	 * @return String SQL
+	 */
+	public function comparisonClause($field, $value, $exact = false, $negate = false, $caseSensitive = null) {
+		if($exact) {
+			$comp = ($negate) ? '!=' : '=';
+		} else {
+			$comp = 'LIKE';
+			if($negate) $comp = 'NOT ' . $comp;	
+		}
+		
+		// Field definitions are case insensitive by default,
+		// change used collation for case sensitive searches.
+		$collateClause = '';
+		if($caseSensitive === true) {
+			if(self::$collation) {
+				$collation = preg_replace('/_CI_/', '_CS_', self::$collation);
+			} else {
+				$collation = 'Latin1_General_CS_AS';
+			}
+			$collateClause = ' COLLATE ' . $collation;
+		} elseif($caseSensitive === false) {
+			if(self::$collation) {
+				$collation = preg_replace('/_CS_/', '_CI_', self::$collation);
+			} else {
+				$collation = 'Latin1_General_CI_AS';
+			}
+			$collateClause = ' COLLATE ' . $collation;
+		}
+
+		$clause = sprintf("%s %s '%s'", $field, $comp, $value);
+		if($collateClause) $clause .= $collateClause;
+
+		return $clause;
+	}
+
+	/**
 	 * Function to return an SQL datetime expression for MSSQL
 	 * used for querying a datetime in a certain format
 	 * @param string $date to be formated, can be either 'now', literal datetime like '1973-10-14 10:30:00' or field name, e.g. '"SiteTree"."Created"'
