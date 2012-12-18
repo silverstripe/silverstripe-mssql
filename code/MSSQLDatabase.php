@@ -175,6 +175,23 @@ class MSSQLDatabase extends SS_Database {
 	}
 
 	/**
+	 * Return the last database error.
+	 * @return string
+	 */
+	public function getLastError() {
+		$error = '';
+		if($this->mssql) {
+			$error = mssql_get_last_message();
+		} else {
+			$errors = sqlsrv_errors();
+			if($errors) foreach($errors as $info) {
+				$error .= implode(', ', array($info['SQLSTATE'], $info['code'], $info['message']));
+			}
+		}
+		return $error;
+	}
+
+	/**
 	 * Checks whether the current SQL Server version has full-text
 	 * support installed and full-text is enabled for this database.
 	 *
@@ -197,15 +214,7 @@ class MSSQLDatabase extends SS_Database {
 	 * Throw a database error
 	 */
 	function databaseError($message, $errorLevel = E_USER_ERROR) {
-		if(!$this->mssql) {
-			$errorMessages = array();
-			$errors = sqlsrv_errors();
-			if ($errors) foreach($errors as $error) {
-				$errorMessages[] = $error['message'];
-			}
-			$message .= ": \n" . implode("; ",$errorMessages);
-		}
-
+		$message .= "\n" . $this->getLastError();
 		return parent::databaseError($message, $errorLevel);
 	}
 
@@ -300,18 +309,9 @@ class MSSQLDatabase extends SS_Database {
 		$error = '';
 		if($this->mssql) {
 			$handle = mssql_query($sql, $this->dbConn);
-			$error = mssql_get_last_message();
 		} else {
 			$handle = sqlsrv_query($this->dbConn, $sql);
 			if($handle) $this->lastAffectedRows = sqlsrv_rows_affected($handle);
-			if(function_exists('sqlsrv_errors')) {
-				$errInfo = sqlsrv_errors();
-				if($errInfo) {
-					foreach($errInfo as $info) {
-						$error .= implode(', ', array($info['SQLSTATE'], $info['code'], $info['message']));
-					}
-				}
-			}
 		}
 
 		if(isset($_REQUEST['showqueries'])) {
@@ -319,7 +319,7 @@ class MSSQLDatabase extends SS_Database {
 			Debug::message("\n$sql\n{$endtime}ms\n", false);
 		}
 
-		if(!$handle && $errorLevel) $this->databaseError("Couldn't run query ($error): $sql", $errorLevel);
+		if(!$handle && $errorLevel) $this->databaseError("Couldn't run query: $sql", $errorLevel);
 		return new MSSQLQuery($this, $handle, $this->mssql);
 	}
 
