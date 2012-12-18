@@ -1451,8 +1451,13 @@ class MSSQLDatabase extends SS_Database {
 		// Remove stopwords, concat with ANDs
 		$keywords = explode(' ', $keywords);
 		$keywords = self::removeStopwords($keywords);
-		$keywords = implode(' AND ', $keywords);
 
+		// remove any empty values from the array
+		foreach($keywords as $i => $word) {
+			if(!strlen($word)) unset($keywords[$i]);
+		}
+
+		$keywords = implode(' AND ', $keywords);
 		if (!$keywords || trim($keywords)=='') return null;
 
 		if ($fields) $fieldNames = '"' . implode('", "', $fields) . '"';
