@@ -214,7 +214,8 @@ class MSSQLDatabase extends SS_Database {
 	 * Throw a database error
 	 */
 	function databaseError($message, $errorLevel = E_USER_ERROR) {
-		$message .= "\n" . $this->getLastError();
+		$lastError = $this->getLastError();
+		if($lastError) $message .= "\nLast error: " . $lastError;
 		return parent::databaseError($message, $errorLevel);
 	}
 
