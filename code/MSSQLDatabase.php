@@ -1236,7 +1236,7 @@ class MSSQLDatabase extends SS_Database {
 				// just use the function directly in the order by instead of the alias
 				$selects = $query->getSelect();
 				foreach($orderby as $field => $dir) {
-					if(preg_match('/SortColumn/', $field)) {
+					if(preg_match('/_SortColumn/', $field)) {
 						unset($orderby[$field]);
 						$orderby[$selects[str_replace('"', '', $field)]] = $dir;
 					}
