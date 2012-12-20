@@ -1230,8 +1230,20 @@ class MSSQLDatabase extends SS_Database {
 
 			// If there's a limit and an offset, then we need to do a subselect
 			} else if($limit && $offset) {
-				if($query->getOrderBy()) {
-					$orderByClause = $this->sqlOrderByToString($query->getOrderBy());
+				$orderby = $query->getOrderBy();
+
+				// workaround for subselect not working with alias functions
+				// just use the function directly in the order by instead of the alias
+				$selects = $query->getSelect();
+				foreach($orderby as $field => $dir) {
+					if(preg_match('/SortColumn/', $field)) {
+						unset($orderby[$field]);
+						$orderby[$selects[str_replace('"', '', $field)]] = $dir;
+					}
+				}
+
+				if($orderby) {
+					$orderByClause = $this->sqlOrderByToString($orderby);
 					$rowNumber = "ROW_NUMBER() OVER ($orderByClause) AS Number";
 				} else {
 					$selects = $query->getSelect();
