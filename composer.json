@@ -1,0 +1,21 @@
+{
+	"name": "silverstripe/mssql",
+	"description": "Adds MSSQL support to SilverStripe",
+	"type": "silverstripe-module",
+	"keywords": ["silverstripe", "mssql", "database"],
+	"authors": [
+	{
+		"name": "Sam Minnee",
+		"email": "sam@silverstripe.com"
+	},
+	{
+		"name": "Sean Harvey",
+		"email": "sean@silverstripe.com"
+	}
+	],
+
+	"require":
+	{
+		"silverstripe/framework": "~2.3"
+	}
+}
