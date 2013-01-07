@@ -843,7 +843,7 @@ class MSSQLDatabase extends SS_Database {
 		
 		if(!is_array($indexSpec)) {
 			$indexSpec=trim($indexSpec, '()');
-			return "$drop CREATE INDEX $index ON \"" . $tableName . "\" (" . $indexSpec . ");";
+			return "$drop CREATE INDEX $index ON \"" . $tableName . "\" ($indexSpec);";
 		} else {
 			// create a type-specific index
 			if($indexSpec['type'] == 'fulltext') {
