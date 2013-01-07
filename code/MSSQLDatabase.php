@@ -613,8 +613,11 @@ class MSSQLDatabase extends SS_Database {
 
 		// drop the index if it exists
 		$alterCol='';
-		$indexName = isset($indexList[$colName]['indexname']) ? $indexList[$colName]['indexname'] : null;
-		if($indexName && $colName != 'ID') {
+
+		// drop *ALL* indexes on a table before proceeding
+		// this won't drop primary keys, though
+		$indexes = $this->indexNames($tableName);
+		foreach($indexes as $indexName) {
 			$alterCol = "\nDROP INDEX \"$indexName\" ON \"$tableName\";";
 		}
 
@@ -815,10 +818,10 @@ class MSSQLDatabase extends SS_Database {
 	 * Some indexes may be arrays, such as fulltext and unique indexes, and this allows database-specific
 	 * arrays to be created.
 	 */
-	public function convertIndexSpec($indexSpec){
-		if(is_array($indexSpec)){
+	public function convertIndexSpec($indexSpec) {
+		if(is_array($indexSpec)) {
 			//Here we create a db-specific version of whatever index we need to create.
-			switch($indexSpec['type']){
+			switch($indexSpec['type']) {
 				case 'fulltext':
 					$indexSpec='fulltext (' . str_replace(' ', '', $indexSpec['value']) . ')';
 					break;
@@ -906,32 +909,48 @@ class MSSQLDatabase extends SS_Database {
 
 		foreach($indexes as $index) {
 			if(strpos($index['index_description'], 'unique') !== false) {
-				$prefix='unique ';
+				$prefix = 'unique ';
 			}
 
-			$key = str_replace(', ', ',', $index['index_keys']);
-			$indexList[$key]['indexname'] = $index['index_name'];
-			$indexList[$key]['spec'] = $prefix . '(' . $key . ')';
+			$name = str_replace(', ', ',', $index['index_keys']);
+
+			// ensure each piece of the index name is quoted, e.g. RecordID,Version
+			// should be "RecordID","Version"
+			$fields = explode(',', $name);
+			if(!$fields) $fields = array($name);
+			ksort($fields);
+
+			$indexList[$name] = $prefix . '("' . implode('","', $fields) . '")';
 		}
 
-		// Now we need to check to see if we have any fulltext indexes attached to this table:
+		// separately build up a list of the fulltext indexes for this table
+		// as MSSQL doesn't return fulltext indexes in sp_helpindex
 		if($this->fullTextEnabled()) {
 			$result = DB::query('EXEC sp_help_fulltext_columns;');
-			$columns = '';
+			$columns = array();
+
 			foreach($result as $row) {
 				if($row['TABLE_NAME'] == $table) {
-					$columns .= $row['FULLTEXT_COLUMN_NAME'] . ',';
+					$columns[] = $row['FULLTEXT_COLUMN_NAME'];
 				}
 			}
 
-			if($columns!=''){
-				$columns=trim($columns, ',');
-				$indexList['SearchFields']['indexname'] = 'SearchFields';
-				$indexList['SearchFields']['spec'] = 'fulltext (' . $columns . ')';
-			}
+			$indexList['SearchFields'] = 'fulltext ("' . implode('","', $columns) . '")';
 		}
 
 		return $indexList;
+	}
+
+	/**
+	 * For a given table name, get all the internal index names,
+	 * except for those that are primary keys and fulltext indexes.
+	 *
+	 * @return array
+	 */
+	public function indexNames($tableName) {
+		return $this->query(sprintf('SELECT ind.name FROM sys.indexes ind
+			INNER JOIN sys.tables t ON ind.object_id = t.object_id
+			WHERE is_primary_key = 0 AND t.name = \'%s\'', $tableName))->column();
 	}
 
 	/**
