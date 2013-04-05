@@ -614,13 +614,6 @@ class MSSQLDatabase extends SS_Database {
 		// drop the index if it exists
 		$alterCol='';
 
-		// drop *ALL* indexes on a table before proceeding
-		// this won't drop primary keys, though
-		$indexes = $this->indexNames($tableName);
-		foreach($indexes as $indexName) {
-			$alterCol = "\nDROP INDEX \"$indexName\" ON \"$tableName\";";
-		}
-
 		$prefix="ALTER TABLE \"" . $tableName . "\" ";
 
 		// Remove the old default prior to adjusting the column.
