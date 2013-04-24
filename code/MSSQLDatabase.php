@@ -1054,7 +1054,7 @@ class MSSQLDatabase extends SS_Database {
 	 * @return string
 	 */
 	public function float($values) {
-		return 'float not null default ' . $values['default'];
+		return 'float(53) not null default ' . $values['default'];
 	}
 
 	/**
