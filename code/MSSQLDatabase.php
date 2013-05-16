@@ -1418,11 +1418,7 @@ class MSSQLDatabase extends SS_Database {
 		$objects = array();
 		foreach ($result as $row) {
 			$current++;
-
-			// Select a subset for paging
-			if ($current >= $start && $current < $start + $pageLength) {
-				$objects[] = DataObject::get_by_id($row['Source'], $row['ID']);
-			}
+			$objects[] = DataObject::get_by_id($row['Source'], $row['ID']);
 		}
 
 		if(isset($objects)) $results = new ArrayList($objects);
