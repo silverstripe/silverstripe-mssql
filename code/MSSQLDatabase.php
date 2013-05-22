@@ -1868,6 +1868,10 @@ class MSSQLQuery extends SS_Query {
 					}
 				}
 				return $data;
+			} else {
+				// free the handle, no more results
+				mssql_free_result($this->handle);
+				$this->handle = null;
 			}
 		} else {
 			if($data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_ASSOC)) {
