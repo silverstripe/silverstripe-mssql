@@ -1418,7 +1418,11 @@ class MSSQLDatabase extends SS_Database {
 		$objects = array();
 		foreach ($result as $row) {
 			$current++;
-			$objects[] = DataObject::get_by_id($row['Source'], $row['ID']);
+
+			// Select a subset for paging
+			if ($current >= $start && $current < $start + $pageLength) {
+				$objects[] = DataObject::get_by_id($row['Source'], $row['ID']);
+			}
 		}
 
 		if(isset($objects)) $results = new ArrayList($objects);
@@ -1427,6 +1431,10 @@ class MSSQLDatabase extends SS_Database {
 		$list->setPageStart($start);
 		$list->setPageLength($pageLength);
 		$list->setTotalItems($current+1);
+
+		// The list has already been limited by the query above
+		$list->setLimitItems(false);
+
 		return $list;
 	}
 
