@@ -1,6 +1,6 @@
 # SQL Server Database Module
 
-Allows SilverStripe to use SQL Server 2008 or SQL Server 2008 R2 database servers.
+Allows SilverStripe to use SQL Server databases.
 
 ## Maintainer Contact
 
@@ -10,19 +10,25 @@ Allows SilverStripe to use SQL Server 2008 or SQL Server 2008 R2 database server
 ## Requirements
 
  * SilverStripe 3.0+
- * SQL Server 2008 or SQL Server 2008 R2
- * *nix: PHP with mssql extension and [FreeTDS](http://freetds.org)
- * Windows: PHP with [SQL Server Driver for PHP](http://www.microsoft.com/downloads/en/details.aspx?displaylang=en&FamilyID=ccdf728b-1ea0-48a8-a84a-5052214caad9) "sqlsrv" 2.0+
+ * SQL Server 2008, 2008 R2, or 2012.
 
-Note: [SQL Server 2008 R2 Express](http://www.microsoft.com/express/Database/) can also be used which is provided free by Microsoft. However, it has limitations such as 10GB maximum database storage.
+### *nix
+
+ * PHP with mssql extension and [FreeTDS](http://freetds.org)
+
+### Windows
+
+ * PHP with [SQL Server Driver for PHP](http://www.microsoft.com/en-us/download/details.aspx?id=20098) "sqlsrv" 3.0+
+
+Note: [SQL Server Express](http://www.microsoft.com/express/Database/) can also be used which is provided free by Microsoft. However, it has limitations such as 10GB maximum database storage.
 
 ## Installation
 
-The easiest way to get up and running with SQL Server on SilverStripe is using the installer:
+These steps will install the latest SilverStripe stable, along with this module using [Composer](http://getcomposer.org/):
 
- * Visit [http://www.silverstripe.org/microsoft-sql-server-database/](http://www.silverstripe.org/microsoft-sql-server-database/) and download the latest stable version
- * Extract the contents so they reside as an **mssql** directory inside your SilverStripe project code
- * Open the installer by browsing to install.php, e.g. **http://localhost/silverstripe/install.php**
+ * Install SilverStripe: `composer create-project silverstripe/installer /my/website/folder`
+ * Install module: `cd /my/website/folder && composer require silverstripe/mssql "*"`
+ * Open the SilverStripe installer by browsing to install.php, e.g. **http://localhost/silverstripe/install.php**
  * Select **SQL Server 2008+** in the database list and enter your SQL Server database details
 
 ## Troubleshooting
@@ -59,3 +65,4 @@ and ensure the "tds version = 8.0" is set globally in the freetds.conf file.
 **Note**: Use *tabs* not spaces when editing freetds.conf, otherwise it will not load the configuration you have specified!
 
 **Note**: Certain distributions of Linux use [SELinux](http://fedoraproject.org/wiki/SELinux) which could block access to your SQL Server database. A rule may need to be added to allow this traffic through.
+
