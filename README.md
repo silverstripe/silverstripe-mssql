@@ -13,7 +13,7 @@ A [list of known issues is available](http://open.silverstripe.org/query?status=
 
 ## Requirements
 
- * SilverStripe 2.4+
+ * SilverStripe 3.0+
  * SQL Server 2008 or SQL Server 2008 R2
  * *nix: PHP with mssql extension and [FreeTDS](http://freetds.org)
  * Windows: PHP with [SQL Server Driver for PHP](http://www.microsoft.com/downloads/en/details.aspx?displaylang=en&FamilyID=ccdf728b-1ea0-48a8-a84a-5052214caad9) "sqlsrv" 2.0+
