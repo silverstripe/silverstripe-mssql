@@ -588,8 +588,7 @@ class MSSQLDatabase extends SS_Database {
 			$bits = preg_split('/ *= */', $segment);
 			for($i = 1; $i < sizeof($bits); $i += 2) {
 				array_unshift($constraints, substr(rtrim($bits[$i], ')'), 1, -1));
-
-		}
+			}
 		}
 		return $constraints;
 	}
@@ -692,8 +691,8 @@ class MSSQLDatabase extends SS_Database {
 	 * @param string $newName The new name of the field
 	 */
 	public function renameField($tableName, $oldName, $newName) {
-			$this->query("EXEC sp_rename @objname = '$tableName.$oldName', @newname = '$newName', @objtype = 'COLUMN'");
-		}
+		$this->query("EXEC sp_rename @objname = '$tableName.$oldName', @newname = '$newName', @objtype = 'COLUMN'");
+	}
 
 	public function fieldList($table) {
 		//This gets us more information than we need, but I've included it all for the moment....
@@ -818,57 +817,147 @@ class MSSQLDatabase extends SS_Database {
 	 * Some indexes may be arrays, such as fulltext and unique indexes, and this allows database-specific
 	 * arrays to be created.
 	 */
-	public function convertIndexSpec($indexSpec) {
-		if(is_array($indexSpec)) {
-			//Here we create a db-specific version of whatever index we need to create.
-			switch($indexSpec['type']) {
-				case 'fulltext':
-					$indexSpec='fulltext (' . str_replace(' ', '', $indexSpec['value']) . ')';
-					break;
-				case 'unique':
-					$indexSpec='unique (' . $indexSpec['value'] . ')';
-					break;
-			}
+	public function convertIndexSpec($indexSpec){
+		$indexSpec = $this->parseIndexSpec(null, $indexSpec);
+		return "{$indexSpec['type']} ({$indexSpec['value']})";
+	}
+	
+	/**
+	 * Splits a spec string safely, considering quoted columns, whitespace, 
+	 * and cleaning brackets
+	 * @param string $spec The input index specification
+	 * @return array List of columns in the spec
+	 */
+	function explodeColumnString($spec) {
+		// Remove any leading/trailing brackets and outlying modifiers
+		// E.g. 'unique (Title, "QuotedColumn");' => 'Title, "QuotedColumn"'
+		$containedSpec = preg_replace('/(.*\(\s*)|(\s*\).*)/', '', $spec);
+		
+		// Split potentially quoted modifiers
+		// E.g. 'Title, "QuotedColumn"' => array('Title', 'QuotedColumn')
+		return preg_split('/"?\s*,\s*"?/', trim($containedSpec, '(") '));
+	}
+	
+	/**
+	 * Builds a properly quoted column list from an array
+	 * @param array $columns List of columns to implode
+	 * @return string A properly quoted list of column names
+	 */
+	function implodeColumnList($columns) {
+		if(empty($columns)) return '';
+		return '"' . implode('","', $columns) . '"';
+	}
+	
+	/**
+	 * Given an index specification in the form of a string ensure that each
+	 * column name is property quoted, stripping brackets and modifiers.
+	 * This index may also be in the form of a "CREATE INDEX..." sql fragment
+	 * @param string $spec The input specification or query. E.g. 'unique (Column1, Column2)'
+	 * @return string The properly quoted column list. E.g. '"Column1", "Column2"'
+	 */
+	function quoteColumnSpecString($spec) {
+		$bits = $this->explodeColumnString($spec);
+		return $this->implodeColumnList($bits);
+	}
+	
+	/**
+	 * Given an index spec determines the index type
+	 * @param type $spec
+	 * @return string 
+	 */
+	function determineIndexType($spec) {
+		// check array spec
+		if(is_array($spec) && isset($spec['type'])) {
+			return $spec['type'];
+		} elseif (!is_array($spec) && preg_match('/(?<type>\w+)\s*\(/', $spec, $matchType)) {
+			return strtolower($matchType['type']);
+		} else {
+			return 'index';
 		}
+	}
+	
+	/**
+	 * Converts an array or string index spec into a universally useful array
+	 * @see convertIndexSpec() for approximate inverse
+	 * @param string|array $spec An index specification in either one of two formats:
+	 * <ul>
+	 * <li>A string in the format <code>"indextype (Column1, Column2, Column3)"</code> indextype
+	 *   may be omitted, in which case it will be treated as an 'index' type</li>
+	 * <li>An associative array with the keys 'name' (which should max the $name
+	 *   argument), 'value' (in the same format as the above column list) and
+	 *   'type'.</li>
+	 * </ul>
+	 * Index types may be one of unique, index, fulltext, or any adaptor specific
+	 * format. Column names may be double quoted.
+	 * @return array The resulting spec array with the required fields 'name', 
+	 * 'type', and 'value'. The index value will have cleanly quoted column names.
+	 * E.g. <code>array(
+	 *	'type' => 'unique', 
+	 *  'name' => 'MyIndex', 
+	 *	'value' => '"Title", "Content"'
+	 * )</code>
+	 */
+	function parseIndexSpec($name, $spec) {
+		
+		// Do minimal cleanup on any already parsed spec
+		if(is_array($spec)) {
+			$spec['value'] = $this->quoteColumnSpecString($spec['value']);
+			return $spec;
+		}
+		
+		// Nicely formatted spec!
+		return array(
+			'name' => $name,
+			'value' => $this->quoteColumnSpecString($spec),
+			'type' => $this->determineIndexType($spec)
+		);
+	}
 
-		return $indexSpec;
+	/**
+	 * Builds the internal MS SQL Server index name given the silverstripe table and index name
+	 * @param string $tableName
+	 * @param string $indexName 
+	 * @param string $prefix The optional prefix for the index. Defaults to "ix" for indexes.
+	 * @return string The postgres name of the index
+	 */
+	function buildMSSQLIndexName($tableName, $indexName, $prefix = 'ix') {
+		
+		// Cleanup names of namespaced tables
+		$tableName = str_replace('\\', '_', $tableName);
+		
+		return "{$prefix}_{$tableName}_{$indexName}";
 	}
 
 	/**
 	 * Return SQL for dropping and recreating an index
 	 */
 	protected function getIndexSqlDefinition($tableName, $indexName, $indexSpec) {
-		$index = 'ix_' . str_replace('\\', '_', $tableName) . '_' . $indexName;
+		
+		// Determine index name
+		$index = $this->buildMSSQLIndexName($tableName, $indexName);
+
+		// Consolidate/Cleanup spec into array format
+		$indexSpec = $this->parseIndexSpec($indexName, $indexSpec);
+		
 		$drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index') DROP INDEX $index ON \"" . $tableName . "\";";
 		
-		if(!is_array($indexSpec)) {
-			$indexSpec=trim($indexSpec, '()');
-			return "$drop CREATE INDEX $index ON \"" . $tableName . "\" ($indexSpec);";
-		} else {
-			// create a type-specific index
-			if($indexSpec['type'] == 'fulltext') {
-				if($this->fullTextEnabled()) {
-					// enable fulltext on this table
-					$this->createFullTextCatalog();
-					$primary_key = $this->getPrimaryKey($tableName);
+		// create a type-specific index
+		if($indexSpec['type'] == 'fulltext' && $this->fullTextEnabled()) {
+			// enable fulltext on this table
+			$this->createFullTextCatalog();
+			$primary_key = $this->getPrimaryKey($tableName);
 
-					$query = '';
-					if($primary_key) {
-						$query .= "CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']}) KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
-					}
-
-					return $query;
-				}
-			}
-
-			if($indexSpec['type'] == 'unique') {
-				if(!is_array($indexSpec['value'])) $columns = preg_split('/ *, */', trim($indexSpec['value']));
-				else $columns = $indexSpec['value'];
-				$SQL_columnList = implode(', ', $columns);
-
-				return "$drop CREATE UNIQUE INDEX $index ON \"" . $tableName . "\" ($SQL_columnList);";
+			if($primary_key) {
+				return "$drop CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']})"
+					 . "KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
 			}
 		}
+
+		if($indexSpec['type'] == 'unique') {
+			return "$drop CREATE UNIQUE INDEX $index ON \"$tableName\" ({$indexSpec['value']});";
+		}
+
+		return "$drop CREATE INDEX $index ON \"$tableName\" ({$indexSpec['value']});";
 	}
 
 	function getDbSqlDefinition($tableName, $indexName, $indexSpec){
@@ -882,19 +971,7 @@ class MSSQLDatabase extends SS_Database {
 	 * @param string $indexSpec The specification of the index, see SS_Database::requireIndex() for more details.
 	 */
 	public function alterIndex($tableName, $indexName, $indexSpec) {
-	    $indexSpec = trim($indexSpec);
-	    if($indexSpec[0] != '(') {
-	    	list($indexType, $indexFields) = explode(' ',$indexSpec,2);
-	    } else {
-	    	$indexFields = $indexSpec;
-	    }
-
-	    if(!$indexType) {
-	    	$indexType = "index";
-	    }
-
-    	$this->query("DROP INDEX $indexName ON $tableName;");
-		$this->query("ALTER TABLE \"$tableName\" ADD $indexType \"$indexName\" $indexFields");
+		$this->createIndex($tableName, $indexName, $indexSpec);
 	}
 
 	/**
@@ -904,38 +981,45 @@ class MSSQLDatabase extends SS_Database {
 	 */
 	public function indexList($table) {
 		$indexes = DB::query("EXEC sp_helpindex '$table';");
-		$prefix = '';
 		$indexList = array();
-
+		
+		// Enumerate all basic indexes
 		foreach($indexes as $index) {
 			if(strpos($index['index_description'], 'unique') !== false) {
 				$prefix = 'unique ';
+			} else {
+				$prefix= 'index ';
 			}
+			
+			// Extract name from index
+			$baseIndexName = $this->buildMSSQLIndexName($table, '');
+			$indexName = substr($index['index_name'], strlen($baseIndexName));
+			
+			// Extract columns
+			$columns = $this->quoteColumnSpecString($index['index_keys']);
 
-			$name = str_replace(', ', ',', $index['index_keys']);
-
-			// ensure each piece of the index name is quoted, e.g. RecordID,Version
-			// should be "RecordID","Version"
-			$fields = explode(',', $name);
-			if(!$fields) $fields = array($name);
-			ksort($fields);
-
-			$indexList[$name] = $prefix . '("' . implode('","', $fields) . '")';
+			$indexList[$indexName]['indexname'] = $indexName;
+			$indexList[$indexName]['spec'] = "$prefix($columns)";
 		}
 
 		// separately build up a list of the fulltext indexes for this table
 		// as MSSQL doesn't return fulltext indexes in sp_helpindex
 		if($this->fullTextEnabled()) {
 			$result = DB::query('EXEC sp_help_fulltext_columns;');
+			
+			// Extract columns from this fulltext definition
 			$columns = array();
-
 			foreach($result as $row) {
 				if($row['TABLE_NAME'] == $table) {
 					$columns[] = $row['FULLTEXT_COLUMN_NAME'];
 				}
 			}
 
-			$indexList['SearchFields'] = 'fulltext ("' . implode('","', $columns) . '")';
+			if(!empty($columns)) {
+				$columns = $this->implodeColumnList($columns);
+				$indexList['SearchFields']['indexname'] = 'SearchFields';
+				$indexList['SearchFields']['spec'] = "fulltext ($columns)";
+			}
 		}
 
 		return $indexList;
@@ -1314,10 +1398,9 @@ class MSSQLDatabase extends SS_Database {
 
 	/**
 	 * This changes the index name depending on database requirements.
-	 * MSSQL requires underscores to be replaced with commas.
 	 */
 	function modifyIndex($index) {
-		return str_replace('_', ',', $index);
+		return $index;
 	}
 
 	/**
