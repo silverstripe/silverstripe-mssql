@@ -924,6 +924,7 @@ class MSSQLDatabase extends SS_Database {
 		
 		// Cleanup names of namespaced tables
 		$tableName = str_replace('\\', '_', $tableName);
+		$indexName = str_replace('\\', '_', $indexName);
 		
 		return "{$prefix}_{$tableName}_{$indexName}";
 	}
