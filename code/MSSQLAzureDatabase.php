@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Specific support for SQL Azure databases running on Windows Azure.
  * Currently only supports the SQLSRV driver from Microsoft.
@@ -18,8 +19,17 @@
  * @package mssql
  */
 class MSSQLAzureDatabase extends MSSQLDatabase {
+	
+	/**
+	 * List of parameters used to create new Azure connections between databases
+	 * 
+	 * @var array
+	 */
+	protected $parameters = array();
 
-	protected $fullTextEnabled = false;
+	public function fullTextEnabled() {
+		return false;
+	}
 
 	public function __construct($parameters) {
 		$this->connectDatabase($parameters);
@@ -28,42 +38,68 @@ class MSSQLAzureDatabase extends MSSQLDatabase {
 	/**
 	 * Connect to a SQL Azure database with the given parameters.
 	 * @param array $parameters Connection parameters set by environment
-	 * @return resource SQL Azure database connection link
+	 *  - server: The server, eg, localhost
+	 *  - username: The username to log on with
+	 *  - password: The password to log on with
+	 *  - database: The database to connect to
+	 *  - windowsauthentication: Not supported for Azure
 	 */
-	protected function connectDatabase($parameters) {
-		$this->dbConn = sqlsrv_connect($parameters['server'], array(
-			'Database' => $parameters['database'],
-			'UID' => $parameters['username'],
-			'PWD' => $parameters['password'],
-			'MultipleActiveResultSets' => '0'
-		));
+	protected function connect($parameters) {
+		$this->parameters = $parameters;
+		$this->connectDatabase($parameters['database']);
+	}
+	
+	/**
+	 * Connect to a database using the provided parameters
+	 * 
+	 * @param string $database
+	 */
+	protected function connectDatabase($database) {
+		$parameters = $this->parameters;
+		$parameters['database'] = $database;
+		$parameters['multipleactiveresultsets'] = 0;
 
-		$this->tableList = $this->fieldList = $this->indexList = null;
-		$this->database = $parameters['database'];
-		$this->active = true;
-		$this->fullTextEnabled = false;
+		// Ensure that driver is available (required by PDO)
+		if(empty($parameters['driver'])) {
+			$parameters['driver'] = $this->getDatabaseServer();
+		}
 
+		// Notify connector of parameters, instructing the connector
+		// to connect immediately to the Azure database
+		$this->connector->connect($parameters, true);
+
+		// Configure the connection
 		$this->query('SET QUOTED_IDENTIFIER ON');
 		$this->query('SET TEXTSIZE 2147483647');
 	}
 
 	/**
 	 * Switches to the given database.
-	 * 
-	 * If the database doesn't exist, you should call
-	 * createDatabase() after calling selectDatabase()
 	 *
 	 * IMPORTANT: SQL Azure doesn't support "USE", so we need
 	 * to reinitialize the database connection with the requested
 	 * database name.
+	 * @see http://msdn.microsoft.com/en-us/library/windowsazure/ee336288.aspx
 	 * 
-	 * @param string $dbname The database name to switch to
+	 * @param type $name The database name to switch to
+	 * @param type $create
+	 * @param type $errorLevel
 	 */
-	public function selectDatabase($dbname) {
-		global $databaseConfig;
-		$parameters = $databaseConfig;
-		$parameters['database'] = $dbname;
-		$this->connectDatabase($parameters);
+	public function selectDatabase($name, $create = false, $errorLevel = E_USER_ERROR) {
+		$this->fullTextEnabled = null;
+		if (!$this->schemaManager->databaseExists($name)) {
+			// Check DB creation permisson
+			if (!$create) {
+				if ($errorLevel !== false) {
+					user_error("Attempted to connect to non-existing database \"$name\"", $errorLevel);
+				}
+				// Unselect database
+				$this->connector->unloadDatabase();
+				return false;
+			}
+			$this->schemaManager->createDatabase($name);
+		}
+		$this->connectDatabase($name);
+		return true;
 	}
-
 }
