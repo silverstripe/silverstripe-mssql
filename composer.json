@@ -4,18 +4,21 @@
 	"type": "silverstripe-module",
 	"keywords": ["silverstripe", "mssql", "database"],
 	"authors": [
-	{
-		"name": "Sam Minnee",
-		"email": "sam@silverstripe.com"
-	},
-	{
-		"name": "Sean Harvey",
-		"email": "sean@silverstripe.com"
-	}
+		{
+			"name": "Sam Minnee",
+			"email": "sam@silverstripe.com"
+		},
+		{
+			"name": "Sean Harvey",
+			"email": "sean@silverstripe.com"
+		}
 	],
-
-	"require":
-	{
+	"require": {
 		"silverstripe/framework": "~3.2"
+	},
+	"extra": {
+		"branch-alias": {
+			"dev-master": "1.0.x-dev"
+		}
 	}
 }
