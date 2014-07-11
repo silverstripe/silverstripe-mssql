@@ -918,7 +918,7 @@ class MSSQLDatabase extends SS_Database {
 	 * @param string $tableName
 	 * @param string $indexName 
 	 * @param string $prefix The optional prefix for the index. Defaults to "ix" for indexes.
-	 * @return string The postgres name of the index
+	 * @return string The name of the index
 	 */
 	function buildMSSQLIndexName($tableName, $indexName, $prefix = 'ix') {
 		
