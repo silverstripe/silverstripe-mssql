@@ -713,13 +713,12 @@ class MSSQLDatabase extends SS_Database {
 			// Update the data_type field to be a complete column definition string for use by
 			// SS_Database::requireField()
 			switch($field['data_type']){
-				case 'int':
 				case 'bigint':
 				case 'numeric':
 				case 'float':
 				case 'bit':
-					if($field['data_type'] != 'bigint' && $field['data_type'] != 'int' && $sizeSuffix = $field['numeric_precision']) {
-						$field['data_type'] .= "($sizeSuffix)";
+					if($field['data_type'] != 'bigint' && $sizeSuffix = $field['numeric_precision']) {
+							$field['data_type'] .= "($sizeSuffix)";
 					}
 
 					if($field['is_nullable'] == 'YES') {
@@ -1157,7 +1156,8 @@ class MSSQLDatabase extends SS_Database {
 	 * @return string
 	 */
 	public function int($values) {
-		return 'int not null default ' . (int) $values['default'];
+		//We'll be using an 8 digit precision to keep it in line with the serial8 datatype for ID columns
+		return 'numeric(8) not null default ' . (int) $values['default'];
 	}
 
 	/**
@@ -1213,17 +1213,17 @@ class MSSQLDatabase extends SS_Database {
 
 	/**
 	 * This returns the column which is the primary key for each table
+	 * In Postgres, it is a SERIAL8, which is the equivalent of an auto_increment
+	 *
 	 * @return string
 	 */
 	function IdColumn($asDbValue=false, $hasAutoIncPK=true){
-		if($asDbValue) {
-			return 'int not null';
-		} else {
-			if($hasAutoIncPK) {
-				return 'int identity(1,1)';
-			} else {
-				return 'int not null';
-			}
+		if($asDbValue)
+			return 'bigint not null';
+		else {
+			if($hasAutoIncPK)
+				return 'bigint identity(1,1)';
+			else return 'bigint not null';
 		}
 	}
 
