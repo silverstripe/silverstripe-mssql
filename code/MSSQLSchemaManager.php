@@ -20,7 +20,7 @@ class MSSQLSchemaManager extends DBSchemaManager {
 	 * @param string $tableName
 	 * @param string $indexName 
 	 * @param string $prefix The optional prefix for the index. Defaults to "ix" for indexes.
-	 * @return string The postgres name of the index
+	 * @return string The name of the index
 	 */
 	function buildMSSQLIndexName($tableName, $indexName, $prefix = 'ix') {
 
@@ -438,12 +438,13 @@ class MSSQLSchemaManager extends DBSchemaManager {
 			// Update the data_type field to be a complete column definition string for use by
 			// SS_Database::requireField()
 			switch($field['data_type']){
+				case 'int':
 				case 'bigint':
 				case 'numeric':
 				case 'float':
 				case 'bit':
-					if($field['data_type'] != 'bigint' && $sizeSuffix = $field['numeric_precision']) {
-							$field['data_type'] .= "($sizeSuffix)";
+					if($field['data_type'] != 'bigint' && $field['data_type'] != 'int' && $sizeSuffix = $field['numeric_precision']) {
+						$field['data_type'] .= "($sizeSuffix)";
 					}
 
 					if($field['is_nullable'] == 'YES') {
@@ -729,8 +730,7 @@ class MSSQLSchemaManager extends DBSchemaManager {
 	 * @return string
 	 */
 	public function int($values) {
-		//We'll be using an 8 digit precision to keep it in line with the serial8 datatype for ID columns
-		return 'numeric(8) not null default ' . (int) $values['default'];
+		return 'int not null default ' . (int) $values['default'];
 	}
 
 	/**
@@ -788,17 +788,15 @@ class MSSQLSchemaManager extends DBSchemaManager {
 
 	/**
 	 * This returns the column which is the primary key for each table
-	 * In Postgres, it is a SERIAL8, which is the equivalent of an auto_increment
-	 *
 	 * @return string
 	 */
 	function IdColumn($asDbValue = false, $hasAutoIncPK = true){
 		if($asDbValue) {
-			return 'bigint not null';
+			return 'int not null';
 		} else if($hasAutoIncPK) {
-			return 'bigint identity(1,1)';
+			return 'int identity(1,1)';
 		} else {
-			return 'bigint not null';
+			return 'int not null';
 		}
 	}
 
