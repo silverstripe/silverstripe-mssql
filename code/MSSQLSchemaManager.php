@@ -734,6 +734,16 @@ class MSSQLSchemaManager extends DBSchemaManager {
 	}
 
 	/**
+	 * Return a bigint type-formatted string
+	 *
+	 * @params array $values Contains a tokenised list of info about this data type
+	 * @return string
+	 */
+	public function bigint($values) {
+		return 'bigint not null default ' . (int) $values['default'];
+	}
+
+	/**
 	 * Return a datetime type-formatted string
 	 * For MS SQL, we simply return the word 'timestamp', no other parameters are necessary
 	 *
