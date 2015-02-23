@@ -214,6 +214,9 @@ class MSSQLDatabase extends SS_Database {
 
 		// Create one query per each table, $columns not used. We want just the ID and the ClassName of the object from this query.
 		foreach($tables as $tableName => $columns){
+			// Don't bother trying to do things if the class doesn't actually exist
+			if (!class_exists($tableName)) continue;
+
 			$baseClass = ClassInfo::baseDataClass($tableName);
 
 			$join = $this->fullTextSearchMSSQL($tableName, $keywords);
