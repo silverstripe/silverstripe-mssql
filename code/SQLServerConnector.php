@@ -117,28 +117,25 @@ class SQLServerConnector extends DBConnector {
 	}
 
 	public function preparedQuery($sql, $parameters, $errorLevel = E_USER_ERROR) {
-		// Check if we should only preview this query
-		if ($this->previewWrite($sql)) return;
+		// Reset state
+		$this->lastAffectedRows = 0;
 		
+		// Run query
 		$parsedParameters = $this->parameterValues($parameters);
-		
-		// Benchmark query
-		$dbConn = $this->dbConn;
-		$handle = $this->benchmarkQuery($sql, function($sql) use($dbConn, $parsedParameters) {
-			if(empty($parsedParameters)) {
-				return sqlsrv_query($dbConn, $sql);
-			} else {
-				return sqlsrv_query($dbConn, $sql, $parsedParameters);
-			}
-		});
-		
-		if($handle) {
-			$this->lastAffectedRows = sqlsrv_rows_affected($handle);
+		if(empty($parsedParameters)) {
+			$handle = sqlsrv_query($this->dbConn, $sql);
 		} else {
+			$handle = sqlsrv_query($this->dbConn, $sql, $parsedParameters);
+		}
+		
+		// Check for error
+		if(!$handle) {
 			$this->databaseError($this->getLastError(), $errorLevel, $sql, $parsedParameters);
 			return null;
 		}
 		
+		// Report result
+		$this->lastAffectedRows = sqlsrv_rows_affected($handle);
 		return new SQLServerQuery($this, $handle);
 	}
 
