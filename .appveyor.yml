@@ -34,7 +34,8 @@ before_test:
 
 test_script:
   - cd c:\projects\assembled
-  - ps: cat phpunit.xml.dist | %{$_ -replace "colors=\"true\"","colors=\"false\""} | Out-File -Encoding "Default" phpunit.xml.dist
+  - rename phpunit.xml.dist phpunit.xml.dist.orig
+  - ps: cat phpunit.xml.dist.orig | %{$_ -replace "colors=`"true`"","colors=`"false`""} | Out-File -Encoding "Default" phpunit.xml.dist
   - php .\vendor\phpunit\phpunit\composer\bin\phpunit framework/tests
 
 environment:
