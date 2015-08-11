@@ -2,6 +2,8 @@
 
 Allows SilverStripe to use SQL Server databases.
 
+[![Build status](https://ci.appveyor.com/api/projects/status/hep0l5kbhu64n7l3/branch/master?svg=true)](https://ci.appveyor.com/project/sminnee/silverstripe-mssql-nwvfq/branch/master)
+
 ## Maintainer Contact
 
  * Sean Harvey (Nickname: halkyon)
