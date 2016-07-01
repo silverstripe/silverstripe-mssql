@@ -1,6 +1,7 @@
 <?php
 
 // PDO connector for MS SQL Server
+/** @skipUpgrade */
 DatabaseAdapterRegistry::register(array(
 	'class' => 'MSSQLPDODatabase',
 	'title' => 'SQL Server 2008 (using PDO)',
@@ -13,6 +14,7 @@ DatabaseAdapterRegistry::register(array(
 ));
 
 // Basic driver using sqlsrv connector
+/** @skipUpgrade */
 DatabaseAdapterRegistry::register(array(
 	'class' => 'MSSQLDatabase',
 	'title' => 'SQL Server 2008 (using sqlsrv)',
@@ -31,6 +33,7 @@ DatabaseAdapterRegistry::register(array(
 ));
 
 // MS Azure uses an online database
+/** @skipUpgrade */
 DatabaseAdapterRegistry::register(array(
 	'class' => 'MSSQLAzureDatabase',
 	'title' => 'MS Azure Database (using sqlsrv)',

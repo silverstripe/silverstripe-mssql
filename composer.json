@@ -14,11 +14,16 @@
 		}
 	],
 	"require": {
-		"silverstripe/framework": ">=3.2"
+		"silverstripe/framework": "^4"
 	},
 	"extra": {
 		"branch-alias": {
-			"dev-master": "1.0.x-dev"
+			"dev-master": "2.x-dev"
+		}
+	},
+	"autoload": {
+		"psr-4": {
+			"SilverStripe\\MSSQL\\": "code/"
 		}
 	},
 	"prefer-stable": true,

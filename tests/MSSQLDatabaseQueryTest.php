@@ -1,4 +1,6 @@
 <?php
+
+use SilverStripe\ORM\DataObject;
 class MSSQLDatabaseQueryTest extends SapphireTest
 {
 
@@ -23,8 +25,8 @@ class MSSQLDatabaseQueryTest extends SapphireTest
 class MSSQLDatabaseQueryTestDataObject extends DataObject implements TestOnly
 {
 
-    public static $db = array(
+    private static $db = array(
         'TestDate' => 'Date',
-        'TestDatetime' => 'SS_Datetime'
+        'TestDatetime' => 'Datetime'
     );
 }

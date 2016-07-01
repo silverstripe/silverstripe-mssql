@@ -1,4 +1,17 @@
 <?php
+
+namespace SilverStripe\MSSQL;
+
+use SilverStripe\ORM\ArrayList;
+use SilverStripe\ORM\DataList;
+use SilverStripe\ORM\DB;
+use SilverStripe\ORM\DataObject;
+use SilverStripe\ORM\Connect\SS_Database;
+use Config;
+use ClassInfo;
+use PaginatedList;
+use SilverStripe\ORM\Queries\SQLSelect;
+
 /**
  * Microsoft SQL Server 2008+ connector class.
  *
@@ -67,24 +80,24 @@ class MSSQLDatabase extends SS_Database
     /**
      * Set the default collation of the MSSQL nvarchar fields that we create.
      * We don't apply this to the database as a whole, so that we can use unicode collations.
-     * 
+     *
      * @param string $collation
      */
     public static function set_collation($collation)
     {
-        Config::inst()->update('MSSQLDatabase', 'collation', $collation);
+        Config::inst()->update('SilverStripe\\MSSQL\\MSSQLDatabase', 'collation', $collation);
     }
-    
+
     /**
      * The default collation of the MSSQL nvarchar fields that we create.
      * We don't apply this to the database as a whole, so that we can use
      * unicode collations.
-     * 
+     *
      * @return string
      */
     public static function get_collation()
     {
-        return Config::inst()->get('MSSQLDatabase', 'collation');
+        return Config::inst()->get('SilverStripe\\MSSQL\\MSSQLDatabase', 'collation');
     }
 
     /**
@@ -94,7 +107,7 @@ class MSSQLDatabase extends SS_Database
      *  - username: The username to log on with
      *  - password: The password to log on with
      *  - database: The database to connect to
-     *  - windowsauthentication: Set to true to use windows authentication 
+     *  - windowsauthentication: Set to true to use windows authentication
      *    instead of username/password
      */
     public function connect($parameters)
@@ -119,7 +132,7 @@ class MSSQLDatabase extends SS_Database
         }
         return $this->fullTextEnabled;
     }
-    
+
     /**
      * Checks whether the current SQL Server version has full-text
      * support installed and full-text is enabled for this database.
@@ -133,7 +146,7 @@ class MSSQLDatabase extends SS_Database
         if (!$isInstalled) {
             return false;
         }
-        
+
         // Check if current database is enabled
         $database = $this->getSelectedDatabase();
         $enabledForDb = $this->preparedQuery(
@@ -157,11 +170,11 @@ class MSSQLDatabase extends SS_Database
     {
         return "sqlsrv";
     }
-    
+
     public function selectDatabase($name, $create = false, $errorLevel = E_USER_ERROR)
     {
         $this->fullTextEnabled = null;
-        
+
         return parent::selectDatabase($name, $create, $errorLevel);
     }
 
@@ -191,9 +204,16 @@ class MSSQLDatabase extends SS_Database
      * Picks up the fulltext-indexed tables from the database and executes search on all of them.
      * Results are obtained as ID-ClassName pairs which is later used to reconstruct the DataObjectSet.
      *
-     * @param array classesToSearch computes all descendants and includes them. Check is done via WHERE clause.
+     * @param array $classesToSearch computes all descendants and includes them. Check is done via WHERE clause.
      * @param string $keywords Keywords as a space separated string
-     * @return object DataObjectSet of result pages
+     * @param int $start
+     * @param int $pageLength
+     * @param string $sortBy
+     * @param string $extraFilter
+     * @param bool $booleanSearch
+     * @param string $alternativeFileFilter
+     * @param bool $invertedMatch
+     * @return PaginatedList DataObjectSet of result pages
      */
     public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false)
     {
@@ -239,8 +259,7 @@ class MSSQLDatabase extends SS_Database
 
         // Create one query per each table, $columns not used. We want just the ID and the ClassName of the object from this query.
         foreach ($tables as $tableName => $columns) {
-            $baseClass = ClassInfo::baseDataClass($tableName);
-
+            $class = DataObject::getSchema()->tableClass($tableName);
             $join = $this->fullTextSearchMSSQL($tableName, $keywords);
             if (!$join) {
                 return $results;
@@ -248,25 +267,25 @@ class MSSQLDatabase extends SS_Database
 
             // Check if we need to add ShowInSearch
             $where = null;
-            if (strpos($tableName, 'SiteTree') === 0) {
+            if ($class === 'SiteTree') {
                 $where = array("\"$tableName\".\"ShowInSearch\"!=0");
-            } elseif (strpos($tableName, 'File') === 0) {
+            } elseif ($class === 'File') {
                 // File.ShowInSearch was added later, keep the database driver backwards compatible
                 // by checking for its existence first
-                $fields = $this->fieldList($tableName);
+                $fields = $this->getSchemaManager()->fieldList($tableName);
                 if (array_key_exists('ShowInSearch', $fields)) {
                     $where = array("\"$tableName\".\"ShowInSearch\"!=0");
                 }
             }
 
-            $queries[$tableName] = DataList::create($tableName)->where($where, '')->dataQuery()->query();
+            $queries[$tableName] = DataList::create($class)->where($where)->dataQuery()->query();
             $queries[$tableName]->setOrderBy(array());
-            
+
             // Join with CONTAINSTABLE, a full text searcher that includes relevance factor
             $queries[$tableName]->setFrom(array("\"$tableName\" INNER JOIN $join AS \"ft\" ON \"$tableName\".\"ID\"=\"ft\".\"KEY\""));
             // Join with the base class if needed, as we want to test agains the ClassName
-            if ($tableName != $baseClass) {
-                $queries[$tableName]->setFrom("INNER JOIN \"$baseClass\" ON  \"$baseClass\".\"ID\"=\"$tableName\".\"ID\"");
+            if ($tableName != $tableName) {
+                $queries[$tableName]->setFrom("INNER JOIN \"$tableName\" ON  \"$tableName\".\"ID\"=\"$tableName\".\"ID\"");
             }
 
             $queries[$tableName]->setSelect(array("\"$tableName\".\"ID\""));
@@ -278,7 +297,7 @@ class MSSQLDatabase extends SS_Database
             if (count($allClassesToSearch)) {
                 $classesPlaceholder = DB::placeholders($allClassesToSearch);
                 $queries[$tableName]->addWhere(array(
-                    "\"$baseClass\".\"ClassName\" IN ($classesPlaceholder)" =>
+                    "\"$tableName\".\"ClassName\" IN ($classesPlaceholder)" =>
                     $allClassesToSearch
                 ));
             }
@@ -289,6 +308,7 @@ class MSSQLDatabase extends SS_Database
         $querySQLs = array();
         $queryParameters = array();
         foreach ($queries as $query) {
+            /** @var SQLSelect $query */
             $querySQLs[] = $query->sql($parameters);
             $queryParameters = array_merge($queryParameters, $parameters);
         }
@@ -326,9 +346,9 @@ class MSSQLDatabase extends SS_Database
     /**
      * Allow auto-increment primary key editing on the given table.
      * Some databases need to enable this specially.
-     * 
-     * @param $table The name of the table to have PK editing allowed on
-     * @param $allow True to start, false to finish
+     *
+     * @param string $table The name of the table to have PK editing allowed on
+     * @param bool $allow True to start, false to finish
      */
     public function allowPrimaryKeyEditing($table, $allow = true)
     {
@@ -338,11 +358,10 @@ class MSSQLDatabase extends SS_Database
     /**
      * Returns a SQL fragment for querying a fulltext search index
      *
-     * @param $tableName specific - table name
-     * @param $keywords string The search query
-     * @param $fields array The list of field names to search on, or null to include all
-     *
-     * @returns null if keyword set is empty or the string with JOIN clause to be added to SQL query
+     * @param string $tableName specific - table name
+     * @param string $keywords The search query
+     * @param array $fields The list of field names to search on, or null to include all
+     * @return string Clause, or null if keyword set is empty or the string with JOIN clause to be added to SQL query
      */
     public function fullTextSearchMSSQL($tableName, $keywords, $fields = null)
     {
@@ -361,7 +380,7 @@ class MSSQLDatabase extends SS_Database
         // Remove stopwords, concat with ANDs
         $keywordList = explode(' ', $keywords);
         $keywordList = $this->removeStopwords($keywordList);
-        
+
         // remove any empty values from the array
         $keywordList = array_filter($keywordList);
         if (empty($keywordList)) {
@@ -408,7 +427,7 @@ class MSSQLDatabase extends SS_Database
     /**
      * This is a quick lookup to discover if the database supports particular extensions
      * Currently, MSSQL supports no extensions
-     * 
+     *
      * @param array $extensions List of extensions to check for support of. The key of this array
      * will be an extension name, and the value the configuration for that extension. This
      * could be one of partitions, tablespaces, or clustering
@@ -426,9 +445,12 @@ class MSSQLDatabase extends SS_Database
             return false;
         }
     }
-    
+
     /**
      * Start transaction. READ ONLY not supported.
+     *
+     * @param bool $transactionMode
+     * @param bool $sessionCharacteristics
      */
     public function transactionStart($transactionMode = false, $sessionCharacteristics = false)
     {
@@ -454,7 +476,7 @@ class MSSQLDatabase extends SS_Database
             $this->query('ROLLBACK TRANSACTION');
         }
     }
-    
+
     public function transactionEnd($chain = false)
     {
         if ($this->connector instanceof SQLServerConnector) {
@@ -463,7 +485,7 @@ class MSSQLDatabase extends SS_Database
             $this->query('COMMIT TRANSACTION');
         }
     }
-    
+
     public function comparisonClause($field, $value, $exact = false, $negate = false, $caseSensitive = null, $parameterised = false)
     {
         if ($exact) {
@@ -474,7 +496,7 @@ class MSSQLDatabase extends SS_Database
                 $comp = 'NOT ' . $comp;
             }
         }
-        
+
         // Field definitions are case insensitive by default,
         // change used collation for case sensitive searches.
         $collateClause = '';
@@ -505,7 +527,7 @@ class MSSQLDatabase extends SS_Database
     /**
      * Function to return an SQL datetime expression for MSSQL
      * used for querying a datetime in a certain format
-     * 
+     *
      * @param string $date to be formated, can be either 'now', literal datetime like '1973-10-14 10:30:00' or field name, e.g. '"SiteTree"."Created"'
      * @param string $format to be used, supported specifiers:
      * %Y = Year (four digits)
@@ -571,7 +593,7 @@ class MSSQLDatabase extends SS_Database
     /**
      * Function to return an SQL datetime expression for MSSQL.
      * used for querying a datetime addition
-     * 
+     *
      * @param string $date, can be either 'now', literal datetime like '1973-10-14 10:30:00' or field name, e.g. '"SiteTree"."Created"'
      * @param string $interval to be added, use the format [sign][integer] [qualifier], e.g. -1 Day, +15 minutes, +1 YEAR
      * supported qualifiers:
@@ -616,7 +638,7 @@ class MSSQLDatabase extends SS_Database
     /**
      * Function to return an SQL datetime expression for MSSQL.
      * used for querying a datetime substraction
-     * 
+     *
      * @param string $date1, can be either 'now', literal datetime like '1973-10-14 10:30:00' or field name, e.g. '"SiteTree"."Created"'
      * @param string $date2 to be substracted of $date1, can be either 'now', literal datetime like '1973-10-14 10:30:00' or field name, e.g. '"SiteTree"."Created"'
      * @return string SQL datetime expression to query for the interval between $date1 and $date2 in seconds which is the result of the substraction

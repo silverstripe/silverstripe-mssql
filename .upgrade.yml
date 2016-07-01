@@ -1,0 +1,8 @@
+mappings:
+  MSSQLAzureDatabase: SilverStripe\MSSQL\MSSQLAzureDatabase
+  MSSQLDatabase: SilverStripe\MSSQL\MSSQLDatabase
+  MSSQLDatabaseConfigurationHelper: SilverStripe\MSSQL\MSSQLDatabaseConfigurationHelper
+  MSSQLQueryBuilder: SilverStripe\MSSQL\MSSQLQueryBuilder
+  MSSQLSchemaManager: SilverStripe\MSSQL\MSSQLSchemaManager
+  SQLServerConnector: SilverStripe\MSSQL\SQLServerConnector
+  SQLServerQuery: SilverStripe\MSSQL\SQLServerQuery
