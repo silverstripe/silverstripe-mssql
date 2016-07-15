@@ -1,5 +1,12 @@
 <?php
 
+namespace SilverStripe\MSSQL;
+
+
+use SilverStripe\ORM\Connect\SS_Query;
+use DateTime;
+
+
 /**
  * A result-set from a MSSQL database.
  * 

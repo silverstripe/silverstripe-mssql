@@ -1,16 +1,23 @@
 <?php
 
+namespace SilverStripe\MSSQL;
+
+
+use SilverStripe\ORM\Connect\DBConnector;
+
+
+
 /**
  * Database connector driver for sqlsrv_ library
- * 
+ *
  * @package mssql
  */
 class SQLServerConnector extends DBConnector
 {
-    
+
     /**
      * Connection to the DBMS.
-     * 
+     *
      * @var resource
      */
     protected $dbConn = null;
@@ -19,11 +26,11 @@ class SQLServerConnector extends DBConnector
      * Stores the affected rows of the last query.
      * Used by sqlsrv functions only, as sqlsrv_rows_affected
      * accepts a result instead of a database handle.
-     * 
+     *
      * @var integer
      */
     protected $lastAffectedRows;
-    
+
     /**
      * Name of the currently selected database
      *
@@ -46,21 +53,21 @@ class SQLServerConnector extends DBConnector
             'CharacterSet' => $charset,
             'MultipleActiveResultSets' => $multiResultSets
         );
-        
+
         if (!(defined('MSSQL_USE_WINDOWS_AUTHENTICATION') && MSSQL_USE_WINDOWS_AUTHENTICATION == true)
             && empty($parameters['windowsauthentication'])
         ) {
             $options['UID'] = $parameters['username'];
             $options['PWD'] = $parameters['password'];
         }
-        
+
         // Required by MS Azure database
         if ($selectDB && !empty($parameters['database'])) {
             $options['Database'] = $parameters['database'];
         }
 
         $this->dbConn = sqlsrv_connect($parameters['server'], $options);
-        
+
         if (empty($this->dbConn)) {
             $this->databaseError("Couldn't connect to SQL Server database");
         } elseif ($selectDB && !empty($parameters['database'])) {
@@ -68,7 +75,7 @@ class SQLServerConnector extends DBConnector
             $this->selectedDatabase = $parameters['database'];
         }
     }
-    
+
     /**
      * Start transaction. READ ONLY not supported.
      */
@@ -79,7 +86,7 @@ class SQLServerConnector extends DBConnector
             $this->databaseError("Couldn't start the transaction.");
         }
     }
-    
+
     /**
      * Commit everything inside this transaction so far
      */
@@ -90,7 +97,7 @@ class SQLServerConnector extends DBConnector
             $this->databaseError("Couldn't commit the transaction.");
         }
     }
-    
+
     /**
      * Rollback or revert to a savepoint if your queries encounter problems
      * If you encounter a problem at any point during a transaction, you may
@@ -108,7 +115,7 @@ class SQLServerConnector extends DBConnector
     {
         return $this->lastAffectedRows;
     }
-    
+
     public function getLastError()
     {
         $errorMessages = array();
@@ -130,7 +137,7 @@ class SQLServerConnector extends DBConnector
     {
         // Reset state
         $this->lastAffectedRows = 0;
-        
+
         // Run query
         $parsedParameters = $this->parameterValues($parameters);
         if (empty($parsedParameters)) {
@@ -138,13 +145,13 @@ class SQLServerConnector extends DBConnector
         } else {
             $handle = sqlsrv_query($this->dbConn, $sql, $parsedParameters);
         }
-        
+
         // Check for error
         if (!$handle) {
             $this->databaseError($this->getLastError(), $errorLevel, $sql, $parsedParameters);
             return null;
         }
-        
+
         // Report result
         $this->lastAffectedRows = sqlsrv_rows_affected($handle);
         return new SQLServerQuery($this, $handle);
@@ -190,19 +197,19 @@ class SQLServerConnector extends DBConnector
         $this->selectDatabase('Master');
         $this->selectedDatabase = null;
     }
-    
+
     /**
      * Quotes a string, including the "N" prefix so unicode
      * strings are saved to the database correctly.
      *
-     * @param string $string String to be encoded
+     * @param string $value String to be encoded
      * @return string Processed string ready for DB
      */
     public function quoteString($value)
     {
         return "N'" . $this->escapeString($value) . "'";
     }
-    
+
     public function escapeString($value)
     {
         $value = str_replace("'", "''", $value);

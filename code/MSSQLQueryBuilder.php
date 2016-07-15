@@ -1,5 +1,14 @@
 <?php
 
+namespace SilverStripe\MSSQL;
+
+
+use InvalidArgumentException;
+use SilverStripe\ORM\Queries\SQLSelect;
+use SilverStripe\ORM\Connect\DBQueryBuilder;
+
+
+
 /**
  * Builds a SQL query string from a SQLExpression object
  * 

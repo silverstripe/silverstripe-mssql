@@ -1,29 +1,31 @@
 <?php
 
+namespace SilverStripe\MSSQL;
+
 /**
  * Specific support for SQL Azure databases running on Windows Azure.
  * Currently only supports the SQLSRV driver from Microsoft.
- * 
+ *
  * Some important things about SQL Azure:
- * 
+ *
  * Selecting a database is not supported.
  * In order to change the database currently in use, you need to connect to
  * the database using the "Database" parameter with sqlsrv_connect()
- * 
+ *
  * Multiple active result sets are not supported. This means you can't
  * have two query results open at once.
- * 
+ *
  * Fulltext indexes are not supported.
- * 
+ *
  * @author Sean Harvey <sean at silverstripe dot com>
  * @package mssql
  */
 class MSSQLAzureDatabase extends MSSQLDatabase
 {
-    
+
     /**
      * List of parameters used to create new Azure connections between databases
-     * 
+     *
      * @var array
      */
     protected $parameters = array();
@@ -47,15 +49,15 @@ class MSSQLAzureDatabase extends MSSQLDatabase
      *  - database: The database to connect to
      *  - windowsauthentication: Not supported for Azure
      */
-    protected function connect($parameters)
+    public function connect($parameters)
     {
         $this->parameters = $parameters;
         $this->connectDatabase($parameters['database']);
     }
-    
+
     /**
      * Connect to a database using the provided parameters
-     * 
+     *
      * @param string $database
      */
     protected function connectDatabase($database)
@@ -85,10 +87,11 @@ class MSSQLAzureDatabase extends MSSQLDatabase
      * to reinitialize the database connection with the requested
      * database name.
      * @see http://msdn.microsoft.com/en-us/library/windowsazure/ee336288.aspx
-     * 
-     * @param type $name The database name to switch to
-     * @param type $create
-     * @param type $errorLevel
+     *
+     * @param string $name The database name to switch to
+     * @param bool $create
+     * @param bool|int $errorLevel
+     * @return bool
      */
     public function selectDatabase($name, $create = false, $errorLevel = E_USER_ERROR)
     {

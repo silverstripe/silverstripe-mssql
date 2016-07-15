@@ -1,24 +1,32 @@
 <?php
 
+namespace SilverStripe\MSSQL;
+
+use DatabaseConfigurationHelper;
+use PDO;
+use Exception;
+use DatabaseAdapterRegistry;
+
 /**
  * This is a helper class for the SS installer.
- * 
+ *
  * It does all the specific checking for MSSQLDatabase
  * to ensure that the configuration is setup correctly.
- * 
+ *
  * @package mssql
  */
 class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
 {
-    
+
     protected function isAzure($databaseConfig)
     {
+        /** @skipUpgrade */
         return $databaseConfig['type'] === 'MSSQLAzureDatabase';
     }
-    
+
     /**
      * Create a connection of the appropriate type
-     * 
+     *
      * @param array $databaseConfig
      * @param string $error Error message passed by value
      * @return mixed|null Either the connection object, or null if error
@@ -26,6 +34,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
     protected function createConnection($databaseConfig, &$error)
     {
         $error = null;
+        /** @skipUpgrade */
         try {
             switch ($databaseConfig['type']) {
                 case 'MSSQLDatabase':
@@ -34,7 +43,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
                         'UID' => $databaseConfig['username'],
                         'PWD' => $databaseConfig['password']
                     );
-                    
+
                     // Azure has additional parameter requirements
                     if ($this->isAzure($databaseConfig)) {
                         $parameters['database'] = $databaseConfig['database'];
@@ -44,7 +53,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
                     if ($conn) {
                         return $conn;
                     }
-                    
+
                     // Get error
                     if ($errors = sqlsrv_errors()) {
                         $error = '';
@@ -73,10 +82,10 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
             return null;
         }
     }
-    
+
     /**
      * Helper function to quote a string value
-     * 
+     *
      * @param mixed $conn Connection object/resource
      * @param string $value Value to quote
      * @return string Quoted strieng
@@ -93,10 +102,10 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
             user_error('Invalid database connection', E_USER_ERROR);
         }
     }
-    
+
     /**
      * Helper function to execute a query
-     * 
+     *
      * @param mixed $conn Connection object/resource
      * @param string $sql SQL string to execute
      * @return array List of first value from each resulting row
@@ -132,7 +141,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
     {
         $conn = $this->createConnection($databaseConfig, $error);
         $success = !empty($conn);
-        
+
         return array(
             'success' => $success,
             'error' => $error
@@ -143,7 +152,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
     {
         $conn = $this->createConnection($databaseConfig, $error);
         $success = !empty($conn);
-        
+
         return array(
             'success' => $success,
             'connection' => $conn,
@@ -160,7 +169,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
 
     /**
      * Ensure that the SQL Server version is at least 10.00.2531 (SQL Server 2008 SP1).
-     * 
+     *
      * @see http://www.sqlteam.com/article/sql-server-versions
      * @param array $databaseConfig Associative array of db configuration, e.g. "server", "username" etc
      * @return array Result - e.g. array('success' => true, 'error' => 'details of error')
@@ -189,6 +198,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
     public function requireDatabaseOrCreatePermissions($databaseConfig)
     {
         $conn = $this->createConnection($databaseConfig, $error);
+        /** @skipUpgrade */
         if (empty($conn)) {
             $success = false;
             $alreadyExists = false;
@@ -227,7 +237,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
             $permissions = $this->query($conn, "select COUNT(*) from sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name like 'create table';");
             $success = $permissions[0] > 0;
         }
-        
+
         return array(
             'success' => $success,
             'applies' => true

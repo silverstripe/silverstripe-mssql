@@ -1,8 +1,15 @@
 <?php
 
+namespace SilverStripe\MSSQL;
+
+
+use SilverStripe\ORM\Connect\DBSchemaManager;
+
+
+
 /**
  * Represents and handles all schema management for a MS SQL database
- * 
+ *
  * @package mssql
  */
 class MSSQLSchemaManager extends DBSchemaManager
@@ -10,16 +17,16 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * Stores per-request cached constraint checks that come from the database.
-     * 
+     *
      * @var array
      */
     protected static $cached_checks = array();
-    
+
     /**
      * Builds the internal MS SQL Server index name given the silverstripe table and index name
-     * 
+     *
      * @param string $tableName
-     * @param string $indexName 
+     * @param string $indexName
      * @param string $prefix The optional prefix for the index. Defaults to "ix" for indexes.
      * @return string The name of the index
      */
@@ -36,7 +43,7 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * This will set up the full text search capabilities.
-     * 
+     *
      * @param string $name Name of full text catalog to use
      */
     public function createFullTextCatalog($name = 'ftCatalog')
@@ -49,7 +56,7 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * Check that a fulltext catalog has been created yet.
-     * 
+     *
      * @param string $name Name of full text catalog to use
      * @return boolean
      */
@@ -75,7 +82,7 @@ class MSSQLSchemaManager extends DBSchemaManager
         if (!$this->database->fullTextEnabled()) {
             return;
         }
-        
+
         $this->query("EXEC sp_fulltext_catalog 'ftCatalog', 'Rebuild';");
 
         // Busy wait until it's done updating, but no longer than 15 seconds.
@@ -93,7 +100,7 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * Check if a fulltext index exists on a particular table name.
-     * 
+     *
      * @param string $tableName
      * @return boolean TRUE index exists | FALSE index does not exist | NULL no support
      */
@@ -115,7 +122,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * MSSQL stores the primary key column with an internal identifier,
      * so a lookup needs to be done to determine it.
-     * 
+     *
      * @param string $tableName Name of table with primary key column "ID"
      * @return string Internal identifier for primary key
      */
@@ -135,7 +142,7 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * Gets the identity column of a table
-     * 
+     *
      * @param string $tableName
      * @return string|null
      */
@@ -158,7 +165,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     {
         $this->query("CREATE DATABASE \"$name\"");
     }
-    
+
     public function dropDatabase($name)
     {
         $this->query("DROP DATABASE \"$name\"");
@@ -174,7 +181,7 @@ class MSSQLSchemaManager extends DBSchemaManager
         }
         return false;
     }
-    
+
     public function databaseList()
     {
         return $this->query('SELECT NAME FROM sys.sysdatabases')->column();
@@ -182,13 +189,14 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * Create a new table.
-     * @param $tableName The name of the table
-     * @param $fields A map of field names to field types
-     * @param $indexes A map of indexes
-     * @param $options An map of additional options.  The available keys are as follows:
+     * @param string $tableName The name of the table
+     * @param array $fields A map of field names to field types
+     * @param array $indexes A map of indexes
+     * @param array $options An map of additional options.  The available keys are as follows:
      *   - 'MSSQLDatabase'/'MySQLDatabase'/'PostgreSQLDatabase' - database-specific options such as "engine" for MySQL.
      *   - 'temporary' - If true, then a temporary table will be created
-     * @return The table name generated.  This may be different from the table name, for example with temporary tables.
+     * @param array $advancedOptions
+     * @return string The table name generated.  This may be different from the table name, for example with temporary tables.
      */
     public function createTable($tableName, $fields = null, $indexes = null, $options = null, $advancedOptions = null)
     {
@@ -227,18 +235,20 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * Alter a table's schema.
-     * @param $table The name of the table to alter
-     * @param $newFields New fields, a map of field name => field schema
-     * @param $newIndexes New indexes, a map of index name => index type
-     * @param $alteredFields Updated fields, a map of field name => field schema
-     * @param $alteredIndexes Updated indexes, a map of index name => index type
+     * @param string $tableName The name of the table to alter
+     * @param array $newFields New fields, a map of field name => field schema
+     * @param array $newIndexes New indexes, a map of index name => index type
+     * @param array $alteredFields Updated fields, a map of field name => field schema
+     * @param array $alteredIndexes Updated indexes, a map of index name => index type
+     * @param array $alteredOptions
+     * @param array $advancedOptions
      */
     public function alterTable($tableName, $newFields = null, $newIndexes = null, $alteredFields = null, $alteredIndexes = null, $alteredOptions=null, $advancedOptions=null)
     {
         $alterList = array();
 
         // drop any fulltext indexes that exist on the table before altering the structure
-        if ($this->fullTextIndexExists($tableName)) {
+        if ($this->fulltextIndexExists($tableName)) {
             $alterList[] = "\nDROP FULLTEXT INDEX ON \"$tableName\";";
         }
 
@@ -276,7 +286,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * Given the table and column name, retrieve the constraint name for that column
      * in the table.
-     * 
+     *
      * @param string $tableName Table name column resides in
      * @param string $columnName Column name the constraint is for
      * @return string|null
@@ -294,11 +304,11 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * Given a table and column name, return a check constraint clause for that column in
      * the table.
-     * 
+     *
      * This is an expensive query, so it is cached per-request and stored by table. The initial
      * call for a table that has not been cached will query all columns and store that
      * so subsequent calls are fast.
-     * 
+     *
      * @param string $tableName Table name column resides in
      * @param string $columnName Column name the constraint is for
      * @return string The check string
@@ -325,7 +335,7 @@ class MSSQLSchemaManager extends DBSchemaManager
             $checks[$record['COLUMN_NAME']] = $record['CHECK_CLAUSE'];
         }
         self::$cached_checks[$tableName] = $checks;
-        
+
         // Return via cached records
         return $this->getConstraintCheckClause($tableName, $columnName);
     }
@@ -333,7 +343,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * Return the name of the default constraint applied to $tableName.$colName.
      * Will return null if no such constraint exists
-     * 
+     *
      * @param string $tableName Name of the table
      * @param string $colName Name of the column
      * @return string|null
@@ -354,7 +364,7 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * Get enum values from a constraint check clause.
-     * 
+     *
      * @param string $clause Check clause to parse values from
      * @return array Enum values
      */
@@ -413,7 +423,7 @@ class MSSQLSchemaManager extends DBSchemaManager
                 // SET null / not null
                 $nullFragment = empty($matches['null']) ? '' : " {$matches['null']}";
                 $alterQueries[] = "$prefix ALTER COLUMN \"$colName\" {$matches['definition']}$nullFragment;";
-                
+
                 // Add a default back
                 if (!empty($matches['default'])) {
                     $alterQueries[] = "$prefix ADD {$matches['default']} FOR \"$colName\";";
@@ -583,10 +593,10 @@ class MSSQLSchemaManager extends DBSchemaManager
     {
         $this->query($this->getIndexSqlDefinition($tableName, $indexName, $indexSpec));
     }
-    
+
     /**
      * Return SQL for dropping and recreating an index
-     * 
+     *
      * @param string $tableName Name of table to create this index against
      * @param string $indexName Name of this index
      * @param array|string $indexSpec Index specification, either as a raw string
@@ -698,7 +708,7 @@ class MSSQLSchemaManager extends DBSchemaManager
             array($tableName)
         )->column();
     }
-    
+
     public function tableList()
     {
         $tables = array();
@@ -712,7 +722,7 @@ class MSSQLSchemaManager extends DBSchemaManager
      * Return a boolean type-formatted string
      * We use 'bit' so that we can do numeric-based comparisons
      *
-     * @params array $values Contains a tokenised list of info about this data type
+     * @param array $values Contains a tokenised list of info about this data type
      * @return string
      */
     public function boolean($values)
@@ -724,7 +734,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * Return a date type-formatted string.
      *
-     * @params array $values Contains a tokenised list of info about this data type
+     * @param array $values Contains a tokenised list of info about this data type
      * @return string
      */
     public function date($values)
@@ -735,7 +745,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * Return a decimal type-formatted string
      *
-     * @params array $values Contains a tokenised list of info about this data type
+     * @param array $values Contains a tokenised list of info about this data type
      * @return string
      */
     public function decimal($values)
@@ -758,7 +768,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * Return a enum type-formatted string
      *
-     * @params array $values Contains a tokenised list of info about this data type
+     * @param array $values Contains a tokenised list of info about this data type
      * @return string
      */
     public function enum($values)
@@ -785,7 +795,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * Return a float type-formatted string.
      *
-     * @params array $values Contains a tokenised list of info about this data type
+     * @param array $values Contains a tokenised list of info about this data type
      * @return string
      */
     public function float($values)
@@ -796,7 +806,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * Return a int type-formatted string
      *
-     * @params array $values Contains a tokenised list of info about this data type
+     * @param array $values Contains a tokenised list of info about this data type
      * @return string
      */
     public function int($values)
@@ -807,7 +817,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * Return a bigint type-formatted string
      *
-     * @params array $values Contains a tokenised list of info about this data type
+     * @param array $values Contains a tokenised list of info about this data type
      * @return string
      */
     public function bigint($values)
@@ -819,10 +829,10 @@ class MSSQLSchemaManager extends DBSchemaManager
      * Return a datetime type-formatted string
      * For MS SQL, we simply return the word 'timestamp', no other parameters are necessary
      *
-     * @params array $values Contains a tokenised list of info about this data type
+     * @param array $values Contains a tokenised list of info about this data type
      * @return string
      */
-    public function ss_datetime($values)
+    public function datetime($values)
     {
         return 'datetime null';
     }
@@ -830,7 +840,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * Return a text type-formatted string
      *
-     * @params array $values Contains a tokenised list of info about this data type
+     * @param array $values Contains a tokenised list of info about this data type
      * @return string
      */
     public function text($values)
@@ -843,7 +853,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * Return a time type-formatted string.
      *
-     * @params array $values Contains a tokenised list of info about this data type
+     * @param array $values Contains a tokenised list of info about this data type
      * @return string
      */
     public function time($values)
@@ -854,7 +864,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * Return a varchar type-formatted string
      *
-     * @params array $values Contains a tokenised list of info about this data type
+     * @param array $values Contains a tokenised list of info about this data type
      * @return string
      */
     public function varchar($values)
@@ -866,6 +876,8 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * Return a 4 digit numeric type.
+     *
+     * @param array $values
      * @return string
      */
     public function year($values)
@@ -875,6 +887,9 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * This returns the column which is the primary key for each table
+     *
+     * @param bool $asDbValue
+     * @param bool $hasAutoIncPK
      * @return string
      */
     public function IdColumn($asDbValue = false, $hasAutoIncPK = true)
@@ -899,6 +914,10 @@ class MSSQLSchemaManager extends DBSchemaManager
     /**
      * Returns the values of the given enum field
      * NOTE: Experimental; introduced for db-abstraction and may changed before 2.4 is released.
+     *
+     * @param string $tableName
+     * @param string $fieldName
+     * @return array
      */
     public function enumValuesForField($tableName, $fieldName)
     {
@@ -918,6 +937,9 @@ class MSSQLSchemaManager extends DBSchemaManager
      *
      * For instance, MSSQL uses 'BIGINT', while MySQL uses 'UNSIGNED'
      * and PostgreSQL uses 'INT'.
+     *
+     * @param string $type
+     * @return string
      */
     public function dbDataType($type)
     {
@@ -930,7 +952,7 @@ class MSSQLSchemaManager extends DBSchemaManager
             return '';
         }
     }
-    
+
     protected function indexKey($table, $index, $spec)
     {
         return $index;

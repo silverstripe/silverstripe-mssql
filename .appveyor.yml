@@ -19,6 +19,7 @@ before_test:
   - echo extension=php_curl.dll >> php.ini
   - echo extension=php_gd2.dll >> php.ini
   - echo extension=php_tidy.dll >> php.ini
+  - echo extension=php_fileinfo.dll >> php.ini
   - php -r "readfile('http://getcomposer.org/installer');" | php
   - php -r "readfile('https://dl.dropboxusercontent.com/u/7129062/sqlsrv_unofficial_3.0.2.2.zip');" > sqlsrv.zip
   - unzip sqlsrv.zip
@@ -40,4 +41,4 @@ test_script:
 
 environment:
   DB: MSSQL
-  CORE_RELEASE: 3
+  CORE_RELEASE: master

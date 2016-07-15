@@ -4,22 +4,29 @@ name: mssqlconnectors
 Injector:
 # Connect using PDO
   MSSQLPDODatabase:
-    class: 'MSSQLDatabase'
+    class: 'SilverStripe\MSSQL\MSSQLDatabase'
     properties:
       connector: %$PDOConnector
       schemaManager: %$MSSQLSchemaManager
       queryBuilder: %$MSSQLQueryBuilder
 # Uses sqlsrv_connect
   MSSQLDatabase:
-    class: 'MSSQLDatabase'
+    class: 'SilverStripe\MSSQL\MSSQLDatabase'
     properties:
       connector: %$SQLServerConnector
       schemaManager: %$MSSQLSchemaManager
       queryBuilder: %$MSSQLQueryBuilder
 # Uses sqlsrv_connect to connect to a MS Azure Database
   MSSQLAzureDatabase:
-    class: 'MSSQLAzureDatabase'
+    class: 'SilverStripe\MSSQL\MSSQLAzureDatabase'
     properties:
       connector: %$SQLServerConnector
       schemaManager: %$MSSQLSchemaManager
       queryBuilder: %$MSSQLQueryBuilder
+  SQLServerConnector:
+    class: 'SilverStripe\MSSQL\SQLServerConnector'
+    type: prototype
+  MSSQLSchemaManager:
+    class: 'SilverStripe\MSSQL\MSSQLSchemaManager'
+  MSSQLQueryBuilder:
+    class: 'SilverStripe\MSSQL\MSSQLQueryBuilder'
