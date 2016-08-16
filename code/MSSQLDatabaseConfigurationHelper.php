@@ -65,8 +65,14 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
                     }
                     return null;
                 case 'MSSQLPDODatabase':
+                    $driver = $this->getPDODriver();
+                    if (!$driver) {
+                        $error = 'No supported PDO driver';
+                        return null;
+                    }
+
                     // May throw a PDOException if fails
-                    $conn = @new PDO('sqlsrv:Server='.$databaseConfig['server'], $databaseConfig['username'], $databaseConfig['password']);
+                    $conn = @new PDO($driver.':Server='.$databaseConfig['server'], $databaseConfig['username'], $databaseConfig['password']);
                     if ($conn) {
                         return $conn;
                     } else {
@@ -81,6 +87,23 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
             $error = $ex->getMessage();
             return null;
         }
+    }
+
+    /**
+     * Get supported PDO driver
+     *
+     * @return null
+     */
+    public static function getPDODriver() {
+        if (!class_exists('PDO')) {
+            return null;
+        }
+        foreach(PDO::getAvailableDrivers() as $driver) {
+            if(in_array($driver, array('sqlsrv', 'dblib'))) {
+                return $driver;
+            }
+        }
+        return null;
     }
 
     /**
