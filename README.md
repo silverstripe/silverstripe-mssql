@@ -8,19 +8,27 @@ Allows SilverStripe to use SQL Server databases.
 
  * Sean Harvey (Nickname: halkyon)
    <sean (at) silverstripe (dot) com>
+   
+ * Damian Mooyman (@tractorcow)
 
 ## Requirements
 
- * SilverStripe 3.0+
+ * SilverStripe 4+
  * SQL Server 2008, 2008 R2, or 2012.
+
+`mssql` PHP api is no longer supported as of 2.0
 
 ### *nix
 
- * PHP with mssql extension and [FreeTDS](http://freetds.org)
+Linux support is only available via the PDO extension. This requires:
+
+ * [dblib](http://www.php.net/manual/en/ref.pdo-dblib.php)
+ * [FreeTDS](http://freetds.org)
 
 ### Windows
 
- * PHP with [SQL Server Driver for PHP](http://www.microsoft.com/en-us/download/details.aspx?id=20098) "sqlsrv" 3.0+
+On windows you can either connect via PDO or `sqlsrv`. Both options require the
+[SQL Server Driver for PHP](https://msdn.microsoft.com/library/dn865013.aspx?f=255&MSPPError=-2147217396). "sqlsrv" 3.0+
 
 Note: [SQL Server Express](http://www.microsoft.com/express/Database/) can also be used which is provided free by Microsoft. However, it has limitations such as 10GB maximum database storage.
 
@@ -29,7 +37,7 @@ Note: [SQL Server Express](http://www.microsoft.com/express/Database/) can also 
 These steps will install the latest SilverStripe stable, along with this module using [Composer](http://getcomposer.org/):
 
  * Install SilverStripe: `composer create-project silverstripe/installer /my/website/folder`
- * Install module: `cd /my/website/folder && composer require silverstripe/mssql "*"`
+ * Install module: `cd /my/website/folder && composer require silverstripe/mssql ^2`
  * Open the SilverStripe installer by browsing to install.php, e.g. **http://localhost/silverstripe/install.php**
  * Select **SQL Server 2008+** in the database list and enter your SQL Server database details
 

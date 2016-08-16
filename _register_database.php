@@ -2,11 +2,13 @@
 
 // PDO connector for MS SQL Server
 /** @skipUpgrade */
+use SilverStripe\MSSQL\MSSQLDatabaseConfigurationHelper;
+
 DatabaseAdapterRegistry::register(array(
 	'class' => 'MSSQLPDODatabase',
 	'title' => 'SQL Server 2008 (using PDO)',
 	'helperPath' => dirname(__FILE__).'/code/MSSQLDatabaseConfigurationHelper.php',
-	'supported' => (class_exists('PDO') && in_array('sqlsrv', PDO::getAvailableDrivers())),
+	'supported' => !!MSSQLDatabaseConfigurationHelper::getPDODriver(),
 	'missingExtensionText' =>
 		'Either the <a href="http://www.php.net/manual/en/book.pdo.php">PDO Extension</a> or 
 		the <a href="http://www.php.net/manual/en/ref.pdo-sqlsrv.php">SQL Server PDO Driver</a> 
