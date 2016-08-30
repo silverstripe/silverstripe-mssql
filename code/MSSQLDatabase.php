@@ -2,14 +2,14 @@
 
 namespace SilverStripe\MSSQL;
 
+use SilverStripe\Core\Config\Config;
+use SilverStripe\Core\ClassInfo;
 use SilverStripe\ORM\ArrayList;
+use SilverStripe\ORM\Connect\SS_Database;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DB;
 use SilverStripe\ORM\DataObject;
-use SilverStripe\ORM\Connect\SS_Database;
-use Config;
-use ClassInfo;
-use PaginatedList;
+use SilverStripe\ORM\PaginatedList;
 use SilverStripe\ORM\Queries\SQLSelect;
 
 /**
@@ -48,8 +48,6 @@ use SilverStripe\ORM\Queries\SQLSelect;
  *
  * References:
  * @see http://freetds.org
- *
- * @package mssql
  */
 class MSSQLDatabase extends SS_Database
 {
@@ -217,14 +215,10 @@ class MSSQLDatabase extends SS_Database
      */
     public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false)
     {
-        if (isset($objects)) {
-            $results = new ArrayList($objects);
-        } else {
-            $results = new ArrayList();
-        }
+        $results = new ArrayList();
 
         if (!$this->fullTextEnabled()) {
-            return $results;
+            return new PaginatedList($results);
         }
         if (!in_array(substr($sortBy, 0, 9), array('"Relevanc', 'Relevance'))) {
             user_error("Non-relevance sort not supported.", E_USER_ERROR);
@@ -262,14 +256,14 @@ class MSSQLDatabase extends SS_Database
             $class = DataObject::getSchema()->tableClass($tableName);
             $join = $this->fullTextSearchMSSQL($tableName, $keywords);
             if (!$join) {
-                return $results;
+                return new PaginatedList($results);
             } // avoid "Null or empty full-text predicate"
 
             // Check if we need to add ShowInSearch
             $where = null;
-            if ($class === 'SiteTree') {
+            if ($class === 'SilverStripe\\CMS\\Model\\SiteTree') {
                 $where = array("\"$tableName\".\"ShowInSearch\"!=0");
-            } elseif ($class === 'File') {
+            } elseif ($class === 'SilverStripe\\Assets\\File') {
                 // File.ShowInSearch was added later, keep the database driver backwards compatible
                 // by checking for its existence first
                 $fields = $this->getSchemaManager()->fieldList($tableName);

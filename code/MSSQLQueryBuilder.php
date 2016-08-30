@@ -2,25 +2,20 @@
 
 namespace SilverStripe\MSSQL;
 
-
 use InvalidArgumentException;
 use SilverStripe\ORM\Queries\SQLSelect;
 use SilverStripe\ORM\Connect\DBQueryBuilder;
 
-
-
 /**
  * Builds a SQL query string from a SQLExpression object
- * 
- * @package mssql
  */
 class MSSQLQueryBuilder extends DBQueryBuilder
 {
-    
+
     protected function buildSelectQuery(SQLSelect $query, array &$parameters)
     {
         list($limit, $offset) = $this->parseLimit($query);
-        
+
         // If not using ofset then query generation is quite straightforward
         if (empty($offset)) {
             $sql = parent::buildSelectQuery($query, $parameters);
@@ -30,7 +25,7 @@ class MSSQLQueryBuilder extends DBQueryBuilder
             }
             return $sql;
         }
-        
+
         // When using offset we must use a subselect
         // @see http://stackoverflow.com/questions/2135418/equivalent-of-limit-and-offset-for-sql-server
         $orderby = $query->getOrderBy();
@@ -58,13 +53,13 @@ class MSSQLQueryBuilder extends DBQueryBuilder
             $firstCol = reset($selects);
             $orderByClause = "ORDER BY $firstCol";
         }
-        
+
         // Build main query SQL
         $sql = parent::buildSelectQuery($query, $parameters);
-        
+
         // Inject row number into selection
         $sql = preg_replace('/^(SELECT (DISTINCT)?)/i', '${1} ROW_NUMBER() OVER ('.$orderByClause.') AS Number, ', $sql);
-        
+
         // Sub-query this SQL
         if (empty($limit)) {
             $limitCondition = "Number > ?";
@@ -76,13 +71,13 @@ class MSSQLQueryBuilder extends DBQueryBuilder
         }
         return "SELECT * FROM ($sql) AS Numbered WHERE $limitCondition ORDER BY Number";
     }
-    
+
     public function buildLimitFragment(SQLSelect $query, array &$parameters)
     {
         // Limit is handled at the buildSelectQuery level
         return '';
     }
-    
+
     public function buildOrderByFragment(SQLSelect $query, array &$parameters)
     {
         // If doing a limit/offset at the same time then don't build the orde by fragment here
@@ -92,10 +87,10 @@ class MSSQLQueryBuilder extends DBQueryBuilder
         }
         return '';
     }
-    
+
     /**
      * Extracts the limit and offset from the limit clause
-     * 
+     *
      * @param SQLSelect $query
      * @return array Two item array with $limit and $offset as values
      * @throws InvalidArgumentException

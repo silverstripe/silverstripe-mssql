@@ -2,15 +2,10 @@
 
 namespace SilverStripe\MSSQL;
 
-
 use SilverStripe\ORM\Connect\DBSchemaManager;
-
-
 
 /**
  * Represents and handles all schema management for a MS SQL database
- *
- * @package mssql
  */
 class MSSQLSchemaManager extends DBSchemaManager
 {
@@ -697,6 +692,7 @@ class MSSQLSchemaManager extends DBSchemaManager
      * For a given table name, get all the internal index names,
      * except for those that are primary keys and fulltext indexes.
      *
+     * @param string $tableName
      * @return array
      */
     public function indexNames($tableName)
@@ -786,6 +782,9 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * @todo Make this work like {@link MySQLDatabase::set()}
+     *
+     * @param array $values
+     * @return string
      */
     public function set($values)
     {

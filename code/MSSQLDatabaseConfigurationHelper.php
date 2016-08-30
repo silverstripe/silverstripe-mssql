@@ -2,18 +2,16 @@
 
 namespace SilverStripe\MSSQL;
 
-use DatabaseConfigurationHelper;
+use SilverStripe\Dev\Install\DatabaseAdapterRegistry;
+use SilverStripe\Dev\Install\DatabaseConfigurationHelper;
 use PDO;
 use Exception;
-use DatabaseAdapterRegistry;
 
 /**
  * This is a helper class for the SS installer.
  *
  * It does all the specific checking for MSSQLDatabase
  * to ensure that the configuration is setup correctly.
- *
- * @package mssql
  */
 class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
 {
@@ -111,7 +109,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
      *
      * @param mixed $conn Connection object/resource
      * @param string $value Value to quote
-     * @return string Quoted strieng
+     * @return string Quoted string
      */
     protected function quote($conn, $value)
     {
@@ -124,6 +122,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
         } else {
             user_error('Invalid database connection', E_USER_ERROR);
         }
+        return null;
     }
 
     /**
