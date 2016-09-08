@@ -18,7 +18,6 @@ namespace SilverStripe\MSSQL;
  * Fulltext indexes are not supported.
  *
  * @author Sean Harvey <sean at silverstripe dot com>
- * @package mssql
  */
 class MSSQLAzureDatabase extends MSSQLDatabase
 {

@@ -2,29 +2,25 @@
 
 namespace SilverStripe\MSSQL;
 
-
-use SilverStripe\ORM\Connect\SS_Query;
 use DateTime;
-
+use SilverStripe\ORM\Connect\SS_Query;
 
 /**
  * A result-set from a MSSQL database.
- * 
- * @package mssql
  */
 class SQLServerQuery extends SS_Query
 {
 
     /**
      * The SQLServerConnector object that created this result set.
-     * 
+     *
      * @var SQLServerConnector
      */
     private $connector;
 
     /**
      * The internal MSSQL handle that points to the result set.
-     * 
+     *
      * @var resource
      */
     private $handle;

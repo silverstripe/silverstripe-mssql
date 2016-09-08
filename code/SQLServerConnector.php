@@ -2,15 +2,10 @@
 
 namespace SilverStripe\MSSQL;
 
-
 use SilverStripe\ORM\Connect\DBConnector;
-
-
 
 /**
  * Database connector driver for sqlsrv_ library
- *
- * @package mssql
  */
 class SQLServerConnector extends DBConnector
 {

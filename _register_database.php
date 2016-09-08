@@ -1,9 +1,10 @@
 <?php
 
-// PDO connector for MS SQL Server
-/** @skipUpgrade */
+use SilverStripe\Dev\Install\DatabaseAdapterRegistry;
 use SilverStripe\MSSQL\MSSQLDatabaseConfigurationHelper;
 
+// PDO connector for MS SQL Server
+/** @skipUpgrade */
 DatabaseAdapterRegistry::register(array(
 	'class' => 'MSSQLPDODatabase',
 	'title' => 'SQL Server 2008 (using PDO)',
