@@ -3,12 +3,12 @@
 namespace SilverStripe\MSSQL;
 
 use DateTime;
-use SilverStripe\ORM\Connect\SS_Query;
+use SilverStripe\ORM\Connect\Query;
 
 /**
  * A result-set from a MSSQL database.
  */
-class SQLServerQuery extends SS_Query
+class SQLServerQuery extends Query
 {
 
     /**
