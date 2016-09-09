@@ -5,7 +5,7 @@ namespace SilverStripe\MSSQL;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\ORM\ArrayList;
-use SilverStripe\ORM\Connect\SS_Database;
+use SilverStripe\ORM\Connect\Database;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DB;
 use SilverStripe\ORM\DataObject;
@@ -49,7 +49,7 @@ use SilverStripe\ORM\Queries\SQLSelect;
  * References:
  * @see http://freetds.org
  */
-class MSSQLDatabase extends SS_Database
+class MSSQLDatabase extends Database
 {
 
     /**
