@@ -25,6 +25,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
     /**
      * Create a connection of the appropriate type
      *
+     * @skipUpgrade
      * @param array $databaseConfig
      * @param string $error Error message passed by value
      * @return mixed|null Either the connection object, or null if error
@@ -32,7 +33,6 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
     protected function createConnection($databaseConfig, &$error)
     {
         $error = null;
-        /** @skipUpgrade */
         try {
             switch ($databaseConfig['type']) {
                 case 'MSSQLDatabase':
@@ -78,7 +78,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
                         return null;
                     }
                 default:
-                    $error = 'Invalid connection type';
+                    $error = 'Invalid connection type: ' . $databaseConfig['type'];
                     return null;
             }
         } catch (Exception $ex) {

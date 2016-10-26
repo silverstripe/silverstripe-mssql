@@ -7,8 +7,10 @@ use SilverStripe\MSSQL\MSSQLDatabaseConfigurationHelper;
 /** @skipUpgrade */
 DatabaseAdapterRegistry::register(array(
 	'class' => 'MSSQLPDODatabase',
+    'module' => 'mssql',
 	'title' => 'SQL Server 2008 (using PDO)',
-	'helperPath' => dirname(__FILE__).'/code/MSSQLDatabaseConfigurationHelper.php',
+	'helperPath' => __DIR__.'/code/MSSQLDatabaseConfigurationHelper.php',
+    'helperClass' => MSSQLDatabaseConfigurationHelper::class,
 	'supported' => !!MSSQLDatabaseConfigurationHelper::getPDODriver(),
 	'missingExtensionText' =>
 		'Either the <a href="http://www.php.net/manual/en/book.pdo.php">PDO Extension</a> or 
@@ -20,8 +22,10 @@ DatabaseAdapterRegistry::register(array(
 /** @skipUpgrade */
 DatabaseAdapterRegistry::register(array(
 	'class' => 'MSSQLDatabase',
+    'module' => 'mssql',
 	'title' => 'SQL Server 2008 (using sqlsrv)',
-	'helperPath' => dirname(__FILE__).'/code/MSSQLDatabaseConfigurationHelper.php',
+	'helperPath' => __DIR__.'/code/MSSQLDatabaseConfigurationHelper.php',
+    'helperClass' => MSSQLDatabaseConfigurationHelper::class,
 	'supported' => function_exists('sqlsrv_connect'),
 	'missingExtensionText' =>
 		'The <a href="http://www.microsoft.com/sqlserver/2005/en/us/PHP-Driver.aspx">sqlsrv</a>
@@ -39,8 +43,10 @@ DatabaseAdapterRegistry::register(array(
 /** @skipUpgrade */
 DatabaseAdapterRegistry::register(array(
 	'class' => 'MSSQLAzureDatabase',
+    'module' => 'mssql',
 	'title' => 'MS Azure Database (using sqlsrv)',
-	'helperPath' => dirname(__FILE__).'/code/MSSQLDatabaseConfigurationHelper.php',
+	'helperPath' => __DIR__.'/code/MSSQLDatabaseConfigurationHelper.php',
+    'helperClass' => MSSQLDatabaseConfigurationHelper::class,
 	'supported' => function_exists('sqlsrv_connect'),
 	'missingExtensionText' =>
 		'The <a href="http://www.microsoft.com/sqlserver/2005/en/us/PHP-Driver.aspx">sqlsrv</a>
