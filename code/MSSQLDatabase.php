@@ -943,7 +943,11 @@ class MSSQLDatabase extends SS_Database {
 		$drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index') DROP INDEX $index ON \"" . $tableName . "\";";
 		
 		// create a type-specific index
-		if($indexSpec['type'] == 'fulltext' && $this->fullTextEnabled()) {
+		if($indexSpec['type'] == 'fulltext') {
+			if(!$this->fullTextEnabled()) {
+				return;
+			}
+			
 			// enable fulltext on this table
 			$this->createFullTextCatalog();
 			$primary_key = $this->getPrimaryKey($tableName);
