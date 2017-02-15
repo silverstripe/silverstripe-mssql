@@ -395,9 +395,10 @@ class MSSQLSchemaManager extends DBSchemaManager
         // drop *ALL* indexes on a table before proceeding
         // this won't drop primary keys, though
         $indexes = $this->indexNames($tableName);
+        $indexes = array_filter($indexes);
 
         foreach ($indexes as $indexName) {
-            $alterQueries[] = "\nIF EXISTS (SELECT name FROM sys.indexes WHERE name = '$indexName' AND object_id = object_id('schema.$tableName')) DROP INDEX \"$indexName\" ON \"$tableName\";";
+            $alterQueries[] = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$indexName' AND object_id = object_id(SCHEMA_NAME() + '.$tableName')) DROP INDEX \"$indexName\" ON \"$tableName\";";
         }
 
         $prefix = "ALTER TABLE \"$tableName\" ";
@@ -603,7 +604,7 @@ class MSSQLSchemaManager extends DBSchemaManager
         // Consolidate/Cleanup spec into array format
         $indexSpec = $this->parseIndexSpec($indexName, $indexSpec);
 
-        $drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index') DROP INDEX $index ON \"$tableName\";";
+        $drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index' AND object_id = object_id(SCHEMA_NAME() + '.$tableName')) DROP INDEX $index ON \"$tableName\";";
 
         // create a type-specific index
         if ($indexSpec['type'] == 'fulltext') {
