@@ -197,6 +197,8 @@ class MSSQLDatabase extends SS_Database
      */
     public function searchEngine($classesToSearch, $keywords, $start, $pageLength, $sortBy = "Relevance DESC", $extraFilter = "", $booleanSearch = false, $alternativeFileFilter = "", $invertedMatch = false)
     {
+        $start = (int)$start;
+        $pageLength = (int)$pageLength;
         if (isset($objects)) {
             $results = new ArrayList($objects);
         } else {
