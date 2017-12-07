@@ -400,8 +400,10 @@ class MSSQLSchemaManager extends DBSchemaManager
         // drop *ALL* indexes on a table before proceeding
         // this won't drop primary keys, though
         $indexes = $this->indexNames($tableName);
+        $indexes = array_filter($indexes);
+
         foreach ($indexes as $indexName) {
-            $alterQueries[] = "DROP INDEX \"$indexName\" ON \"$tableName\";";
+            $alterQueries[] = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$indexName' AND object_id = object_id(SCHEMA_NAME() + '.$tableName')) DROP INDEX \"$indexName\" ON \"$tableName\";";
         }
 
         $prefix = "ALTER TABLE \"$tableName\" ";
@@ -607,10 +609,13 @@ class MSSQLSchemaManager extends DBSchemaManager
         // Consolidate/Cleanup spec into array format
         $indexSpec = $this->parseIndexSpec($indexName, $indexSpec);
 
-        $drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index') DROP INDEX $index ON \"$tableName\";";
+        $drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index' AND object_id = object_id(SCHEMA_NAME() + '.$tableName')) DROP INDEX $index ON \"$tableName\";";
 
         // create a type-specific index
-        if ($indexSpec['type'] == 'fulltext' && $this->database->fullTextEnabled()) {
+        if ($indexSpec['type'] == 'fulltext') {
+            if(!$this->database->fullTextEnabled()) {
+                return '';
+            }
             // enable fulltext on this table
             $this->createFullTextCatalog();
             $primary_key = $this->getPrimaryKey($tableName);
@@ -700,7 +705,7 @@ class MSSQLSchemaManager extends DBSchemaManager
         return $this->preparedQuery('
 			SELECT ind.name FROM sys.indexes ind
 			INNER JOIN sys.tables t ON ind.object_id = t.object_id
-			WHERE is_primary_key = 0 AND t.name = ?',
+			WHERE is_primary_key = 0 AND t.name = ? AND ind.name IS NOT NULL',
             array($tableName)
         )->column();
     }
