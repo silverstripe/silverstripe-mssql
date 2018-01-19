@@ -1,7 +1,7 @@
 ---
 name: mssqlconnectors
 ---
-Injector:
+SilverStripe\Core\Injector\Injector:
 # Connect using PDO
   MSSQLPDODatabase:
     class: 'SilverStripe\MSSQL\MSSQLDatabase'
