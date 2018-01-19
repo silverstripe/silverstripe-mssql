@@ -2,7 +2,8 @@
 
 namespace SilverStripe\MSSQL;
 
-use SilverStripe\Core\Config\Config;
+use SilverStripe\Core\Config\Configurable;
+use SilverStripe\Core\Injector\Injectable;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\ORM\ArrayList;
 use SilverStripe\ORM\Connect\Database;
@@ -51,6 +52,8 @@ use SilverStripe\ORM\Queries\SQLSelect;
  */
 class MSSQLDatabase extends Database
 {
+    use Configurable;
+    use Injectable;
 
     /**
      * Words that will trigger an error if passed to a SQL Server fulltext search
@@ -83,7 +86,7 @@ class MSSQLDatabase extends Database
      */
     public static function set_collation($collation)
     {
-        Config::inst()->update('SilverStripe\\MSSQL\\MSSQLDatabase', 'collation', $collation);
+        static::config()->set('collation', $collation);
     }
 
     /**
@@ -95,7 +98,7 @@ class MSSQLDatabase extends Database
      */
     public static function get_collation()
     {
-        return Config::inst()->get('SilverStripe\\MSSQL\\MSSQLDatabase', 'collation');
+        return static::config()->get('collation');
     }
 
     /**

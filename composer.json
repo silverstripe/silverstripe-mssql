@@ -1,7 +1,7 @@
 {
 	"name": "silverstripe/mssql",
 	"description": "Adds MSSQL support to SilverStripe",
-	"type": "silverstripe-module",
+	"type": "silverstripe-vendormodule",
 	"keywords": ["silverstripe", "mssql", "database"],
 	"authors": [
 		{
@@ -15,6 +15,10 @@
 	],
 	"require": {
 		"silverstripe/framework": "^4"
+	},
+	"suggest": {
+        "ext-sqlsrv": "Required to support MSSQLDatabase as the server type",
+        "ext-pdo_sqlsrv": "Required to support MSSQLPDODatabase as the server type"
 	},
 	"extra": {
 		"branch-alias": {
