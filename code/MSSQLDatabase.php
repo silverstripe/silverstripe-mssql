@@ -79,6 +79,11 @@ class MSSQLDatabase extends Database
     protected $fullTextEnabled = null;
 
     /**
+     * @var bool
+     */
+    protected $transactionNesting = 0;
+
+    /**
      * Set the default collation of the MSSQL nvarchar fields that we create.
      * We don't apply this to the database as a whole, so that we can use unicode collations.
      *
@@ -453,11 +458,14 @@ class MSSQLDatabase extends Database
      */
     public function transactionStart($transactionMode = false, $sessionCharacteristics = false)
     {
-        if ($this->connector instanceof SQLServerConnector) {
+        if ($this->transactionNesting > 0) {
+            $this->transactionSavepoint('NESTEDTRANSACTION' . $this->transactionNesting);
+        } elseif ($this->connector instanceof SQLServerConnector) {
             $this->connector->transactionStart();
         } else {
             $this->query('BEGIN TRANSACTION');
         }
+        ++$this->transactionNesting;
     }
 
     public function transactionSavepoint($savepoint)
@@ -469,19 +477,28 @@ class MSSQLDatabase extends Database
     {
         if ($savepoint) {
             $this->query("ROLLBACK TRANSACTION \"$savepoint\"");
-        } elseif ($this->connector instanceof SQLServerConnector) {
-            $this->connector->transactionRollback();
         } else {
-            $this->query('ROLLBACK TRANSACTION');
+            --$this->transactionNesting;
+            if ($this->transactionNesting > 0) {
+                $this->transactionRollback('NESTEDTRANSACTION' . $this->transactionNesting);
+            } elseif ($this->connector instanceof SQLServerConnector) {
+                $this->connector->transactionRollback();
+            } else {
+                $this->query('ROLLBACK TRANSACTION');
+            }
         }
     }
 
     public function transactionEnd($chain = false)
     {
-        if ($this->connector instanceof SQLServerConnector) {
-            $this->connector->transactionEnd();
-        } else {
-            $this->query('COMMIT TRANSACTION');
+        --$this->transactionNesting;
+        if ($this->transactionNesting <= 0) {
+            $this->transactionNesting = 0;
+            if ($this->connector instanceof SQLServerConnector) {
+                $this->connector->transactionEnd();
+            } else {
+                $this->query('COMMIT TRANSACTION');
+            }
         }
     }
 
