@@ -607,7 +607,7 @@ class MSSQLSchemaManager extends DBSchemaManager
         $index = $this->buildMSSQLIndexName($tableName, $indexName);
 
         // Consolidate/Cleanup spec into array format
-        $indexSpec = $this->parseIndexSpec($indexName, $indexSpec);
+        $columns = $this->implodeColumnList($indexSpec['columns']);
 
         $drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index' AND object_id = object_id(SCHEMA_NAME() + '.$tableName')) DROP INDEX $index ON \"$tableName\";";
 
@@ -621,16 +621,16 @@ class MSSQLSchemaManager extends DBSchemaManager
             $primary_key = $this->getPrimaryKey($tableName);
 
             if ($primary_key) {
-                return "$drop CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']})"
+                return "$drop CREATE FULLTEXT INDEX ON \"$tableName\" ({$columns})"
                      . "KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
             }
         }
 
         if ($indexSpec['type'] == 'unique') {
-            return "$drop CREATE UNIQUE INDEX $index ON \"$tableName\" ({$indexSpec['value']});";
+            return "$drop CREATE UNIQUE INDEX $index ON \"$tableName\" ({$columns});";
         }
 
-        return "$drop CREATE INDEX $index ON \"$tableName\" ({$indexSpec['value']});";
+        return "$drop CREATE INDEX $index ON \"$tableName\" ({$columns});";
     }
 
     public function alterIndex($tableName, $indexName, $indexSpec)
@@ -662,11 +662,11 @@ class MSSQLSchemaManager extends DBSchemaManager
 
             // Extract columns
             $columns = $this->quoteColumnSpecString($index['index_keys']);
-            $indexList[$indexName] = $this->parseIndexSpec($indexName, array(
+            $indexList[$indexName] = array(
                 'name' => $indexName,
-                'value' => $columns,
+                'columns' => $this->explodeColumnString($columns),
                 'type' => $indexType
-            ));
+            );
         }
 
         // Now we need to check to see if we have any fulltext indexes attached to this table:
@@ -682,11 +682,11 @@ class MSSQLSchemaManager extends DBSchemaManager
             }
 
             if (!empty($columns)) {
-                $indexList['SearchFields'] = $this->parseIndexSpec('SearchFields', array(
+                $indexList['SearchFields'] = array(
                     'name' => 'SearchFields',
-                    'value' => $this->implodeColumnList($columns),
+                    'columns' => $this->implodeColumnList($columns),
                     'type' => 'fulltext'
-                ));
+                );
             }
         }
 
