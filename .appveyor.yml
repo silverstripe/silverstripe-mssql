@@ -9,36 +9,45 @@ services:
 before_test:
   - sqlcmd -S "(local)\SQL2014" -Q "Use [master]; CREATE DATABASE [appveyor]"
   - SET PATH=C:\Program Files\OpenSSL;C:\tools\php;%PATH%
-  - cinst -y php -version 5.6.11
+  - ps: appveyor-retry cinst --params '""/InstallDir:C:\tools\php""' --ignore-checksums -y php --version ((choco search php --exact --all-versions -r | select-string -pattern 5.6 | sort { [version]($_ -split '\|' | select -last 1) } -Descending | Select-Object -first 1) -replace '[php|]','')
   - cd c:\tools\php
   - ps: cat php.ini-production | %{$_ -replace "memory_limit = 128M","memory_limit = 256M"} | Out-File -Encoding "Default" php.ini
   - echo date.timezone="UTC" >> php.ini
   - echo extension_dir=ext >> php.ini
+  - echo extension=php_intl.dll >> php.ini
   - echo extension=php_openssl.dll >> php.ini
+  - echo extension=php_pdo_mysql.dll >> php.ini
   - echo extension=php_mbstring.dll >> php.ini
   - echo extension=php_curl.dll >> php.ini
   - echo extension=php_gd2.dll >> php.ini
   - echo extension=php_tidy.dll >> php.ini
   - echo extension=php_fileinfo.dll >> php.ini
   - php -r "readfile('http://getcomposer.org/installer');" | php
-  - php -r "readfile('https://dl.dropboxusercontent.com/u/7129062/sqlsrv_unofficial_3.0.2.2.zip');" > sqlsrv.zip
+  - php -r "readfile('https://gist.github.com/kinglozzer/f804bd11c8ba47cac2733d617e6e8b09/raw/a4a498e8fdaa8a20e3eb8b3133c6968371f8815f/sqlsrv_unofficial_3.0.2.2.zip');" > sqlsrv.zip
   - unzip sqlsrv.zip
-  - copy sqlsrv_unofficial_3.0.2.2\x64\*.dll ext
+  - copy x64\*.dll ext
   - echo extension=php_sqlsrv_56_nts.dll >> php.ini
   - echo extension=php_pdo_sqlsrv_56_nts.dll >> php.ini
   - ps: echo "php c:\tools\php\composer.phar %*" | Out-File -Encoding "Default" composer.bat
   - type composer.bat
   - composer --version
-  - git clone --branch=windows-support git://github.com/silverstripe-labs/silverstripe-travis-support.git c:\projects\travis-support
-  - php c:\projects\travis-support\travis_setup.php --source c:\projects\silverstripe --target c:\projects\assembled
-  - cd c:\projects\assembled
+  - cd c:\projects\silverstripe
+  - composer validate
+  - composer require --no-update silverstripe/installer:4.1.x-dev
+  - composer install --prefer-source --no-interaction --no-progress --no-suggest --optimize-autoloader --verbose --profile
 
 test_script:
-  - cd c:\projects\assembled
+  - cd c:\projects\silverstripe
   - rename phpunit.xml.dist phpunit.xml.dist.orig
   - ps: cat phpunit.xml.dist.orig | %{$_ -replace "colors=`"true`"","colors=`"false`""} | Out-File -Encoding "Default" phpunit.xml.dist
-  - php .\vendor\phpunit\phpunit\composer\bin\phpunit framework/tests
+  - vendor\bin\phpunit ./tests
+  - vendor\bin\phpunit vendor/silverstripe/framework/tests/php
 
 environment:
   DB: MSSQL
-  CORE_RELEASE: master
+  PDO: 1
+  SS_DATABASE_CLASS: 'MSSQLPDODatabase'
+  SS_DATABASE_USERNAME: 'sa'
+  SS_DATABASE_PASSWORD: 'Password12!'
+  SS_DATABASE_NAME: 'appveyor'
+  SS_DATABASE_SERVER: '(local)\SQL2014'

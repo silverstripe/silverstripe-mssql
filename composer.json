@@ -14,8 +14,12 @@
 		}
 	],
 	"require": {
-		"silverstripe/framework": "^4"
+		"silverstripe/framework": "^4",
+        "silverstripe/vendor-plugin": "^1.0"
 	},
+    "require-dev": {
+        "phpunit/phpunit": "^5.7"
+    },
 	"suggest": {
         "ext-sqlsrv": "Required to support MSSQLDatabase as the server type",
         "ext-pdo_sqlsrv": "Required to support MSSQLPDODatabase as the server type"
