@@ -475,22 +475,33 @@ class MSSQLDatabase extends Database
 
     public function transactionRollback($savepoint = false)
     {
+        // Named transaction
         if ($savepoint) {
             $this->query("ROLLBACK TRANSACTION \"$savepoint\"");
-        } else {
-            --$this->transactionNesting;
-            if ($this->transactionNesting > 0) {
-                $this->transactionRollback('NESTEDTRANSACTION' . $this->transactionNesting);
-            } elseif ($this->connector instanceof SQLServerConnector) {
-                $this->connector->transactionRollback();
-            } else {
-                $this->query('ROLLBACK TRANSACTION');
-            }
+            return true;
         }
+
+        // Fail if transaction isn't available
+        if (!$this->transactionNesting) {
+            return false;
+        }
+        --$this->transactionNesting;
+        if ($this->transactionNesting > 0) {
+            $this->transactionRollback('NESTEDTRANSACTION' . $this->transactionNesting);
+        } elseif ($this->connector instanceof SQLServerConnector) {
+            $this->connector->transactionRollback();
+        } else {
+            $this->query('ROLLBACK TRANSACTION');
+        }
+        return true;
     }
 
     public function transactionEnd($chain = false)
     {
+        // Fail if transaction isn't available
+        if (!$this->transactionNesting) {
+            return false;
+        }
         --$this->transactionNesting;
         if ($this->transactionNesting <= 0) {
             $this->transactionNesting = 0;
@@ -499,6 +510,36 @@ class MSSQLDatabase extends Database
             } else {
                 $this->query('COMMIT TRANSACTION');
             }
+        }
+        return true;
+    }
+
+    /**
+     * In error condition, set transactionNesting to zero
+     */
+    protected function resetTransactionNesting()
+    {
+        $this->transactionNesting = 0;
+    }
+
+    public function query($sql, $errorLevel = E_USER_ERROR)
+    {
+        $this->inspectQuery($sql);
+        return parent::query($sql, $errorLevel);
+    }
+
+    public function preparedQuery($sql, $parameters, $errorLevel = E_USER_ERROR)
+    {
+        $this->inspectQuery($sql);
+        return parent::preparedQuery($sql, $parameters, $errorLevel);
+    }
+
+    protected function inspectQuery($sql)
+    {
+        // Any DDL discards transactions.
+        $isDDL = $this->getConnector()->isQueryDDL($sql);
+        if ($isDDL) {
+            $this->resetTransactionNesting();
         }
     }
 
