@@ -27,7 +27,7 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"SilverStripe\\MSSQL\\": "code/"
+			"SilverStripe\\MSSQL\\": "src/"
 		}
 	},
 	"prefer-stable": true,
