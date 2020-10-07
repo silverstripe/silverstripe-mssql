@@ -34,11 +34,6 @@ class MSSQLAzureDatabase extends MSSQLDatabase
         return false;
     }
 
-    public function __construct($parameters)
-    {
-        $this->connectDatabase($parameters);
-    }
-
     /**
      * Connect to a SQL Azure database with the given parameters.
      * @param array $parameters Connection parameters set by environment
