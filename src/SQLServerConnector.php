@@ -3,6 +3,12 @@
 namespace SilverStripe\MSSQL;
 
 use SilverStripe\ORM\Connect\DBConnector;
+use function sqlsrv_connect;
+use function sqlsrv_begin_transaction;
+use function sqlsrv_rollback;
+use function sqlsrv_query;
+
+use const MSSQL_USE_WINDOWS_AUTHENTICATION;
 
 /**
  * Database connector driver for sqlsrv_ library
@@ -64,6 +70,7 @@ class SQLServerConnector extends DBConnector
         $this->dbConn = sqlsrv_connect($parameters['server'], $options);
 
         if (empty($this->dbConn)) {
+            var_dump(sqlsrv_errors());
             $this->databaseError("Couldn't connect to SQL Server database");
         } elseif ($selectDB && !empty($parameters['database'])) {
             // Check selected database (Azure)

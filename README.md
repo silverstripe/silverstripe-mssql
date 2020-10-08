@@ -8,7 +8,7 @@ Allows SilverStripe to use SQL Server databases.
 
  * Sean Harvey (Nickname: halkyon)
    <sean (at) silverstripe (dot) com>
-   
+
  * Damian Mooyman (@tractorcow)
 
 ## Requirements
@@ -39,7 +39,21 @@ These steps will install the latest SilverStripe stable, along with this module 
  * Install SilverStripe: `composer create-project silverstripe/installer /my/website/folder`
  * Install module: `cd /my/website/folder && composer require silverstripe/mssql ^2`
  * Open the SilverStripe installer by browsing to install.php, e.g. **http://localhost/silverstripe/install.php**
- * Select **SQL Server 2008+** in the database list and enter your SQL Server database details
+ * Select **SQL Server 2008+** in the database list and enter your SQL Server database details. If you aren't using the
+ installer then configure the following environment variables:
+
+```
+SS_DATABASE_CLASS="MSSQLAzureDatabase" # or: `MSSQLDatabase` or `MSSQLPDODatabase`
+SS_DATABASE_SERVER=""
+SS_DATABASE_NAME=""
+SS_DATABASE_USERNAME=""
+SS_DATABASE_PASSWORD=""
+```
+
+Note on OSX / Linux machines you will need to install the ODBC drivers and the PHP extension `sqlsrv` or `pdo_sqlsrv`
+
+* https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/install-microsoft-odbc-driver-sql-server-macos
+* https://docs.microsoft.com/en-us/sql/connect/php/installation-tutorial-linux-mac
 
 ## Troubleshooting
 

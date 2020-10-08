@@ -4,6 +4,10 @@ namespace SilverStripe\MSSQL;
 
 use DateTime;
 use SilverStripe\ORM\Connect\Query;
+use function sqlsrv_next_result;
+use function sqlsrv_num_rows;
+use function sqlsrv_free_stmt;
+use const SQLSRV_SCROLL_ABSOLUTE;
 
 /**
  * A result-set from a MSSQL database.
@@ -43,23 +47,6 @@ class SQLServerQuery extends Query
         }
     }
 
-    public function getIterator()
-    {
-        if (is_resource($this->handle)) {
-            while ($data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_ASSOC)) {
-                // special case for sqlsrv - date values are DateTime coming out of the sqlsrv drivers,
-                // so we convert to the usual Y-m-d H:i:s value!
-                foreach ($data as $name => $value) {
-                    if ($value instanceof DateTime) {
-                        $data[$name] = $value->format('Y-m-d H:i:s');
-                    }
-                }
-
-                yield $data;
-            }
-        }
-    }
-
     public function numRecords()
     {
         if (!is_resource($this->handle)) {
@@ -72,5 +59,15 @@ class SQLServerQuery extends Query
         } else {
             user_error('MSSQLQuery::numRecords() not supported in this version of sqlsrv', E_USER_WARNING);
         }
+    }
+
+    public function nextRecord()
+    {
+        return sqlsrv_next_result($this->handle);
+    }
+
+    public function seek($row)
+    {
+        return sqlsrv_fetch($this->handle, SQLSRV_SCROLL_ABSOLUTE, $row);
     }
 }
