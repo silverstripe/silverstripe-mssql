@@ -9,9 +9,9 @@ class MSSQLDatabaseQueryTest extends SapphireTest
 
     public static $fixture_file = 'MSSQLDatabaseQueryTest.yml';
 
-    protected $extraDataObjects = array(
+    protected $extraDataObjects = [
         'MSSQLDatabaseQueryTestDataObject'
-    );
+    ];
 
     public function testDateValueFormatting()
     {
@@ -28,8 +28,8 @@ class MSSQLDatabaseQueryTest extends SapphireTest
 class MSSQLDatabaseQueryTestDataObject extends DataObject implements TestOnly
 {
 
-    private static $db = array(
+    private static $db = [
         'TestDate' => 'Date',
         'TestDatetime' => 'Datetime'
-    );
+    ];
 }
