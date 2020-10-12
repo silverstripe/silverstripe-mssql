@@ -609,6 +609,27 @@ class MSSQLSchemaManager extends DBSchemaManager
         $this->query($this->getIndexSqlDefinition($tableName, $indexName, $indexSpec));
     }
 
+
+    /**
+     * This takes the index spec which has been provided by a class (ie static $indexes = blah blah)
+     * and turns it into a proper string.
+     * Some indexes may be arrays, such as fulltext and unique indexes, and this allows database-specific
+     * arrays to be created. See {@link requireTable()} for details on the index format.
+     *
+     * @see http://dev.mysql.com/doc/refman/5.0/en/create-index.html
+     * @see parseIndexSpec() for approximate inverse
+     *
+     * @param string|array $indexSpec
+     * @return string
+     */
+    protected function convertIndexSpec($indexSpec)
+    {
+        $indexSpec['type'] = trim($indexSpec['type']);
+        $spec = parent::convertIndexSpec($indexSpec);
+
+        return $spec;
+    }
+
     /**
      * Return SQL for dropping and recreating an index
      *
@@ -675,10 +696,10 @@ class MSSQLSchemaManager extends DBSchemaManager
             }
 
             // Extract name from index
-            $baseIndexName = $this->buildMSSQLIndexName($table, '');
+            $baseIndexName = $index['index_name'];
             $indexName = substr($index['index_name'], strlen($baseIndexName));
 
-            $indexList[$indexName] = [
+            $indexList[$baseIndexName] = [
                 'name' => $indexName,
                 'columns' => $this->explodeColumnString($index['index_keys']),
                 'type' => $indexType
@@ -722,16 +743,18 @@ class MSSQLSchemaManager extends DBSchemaManager
             SELECT ind.name FROM sys.indexes ind
             INNER JOIN sys.tables t ON ind.object_id = t.object_id
             WHERE is_primary_key = 0 AND t.name = ? AND ind.name IS NOT NULL',
-            array($tableName)
+            [$tableName]
         )->column();
     }
 
     public function tableList()
     {
-        $tables = array();
+        $tables = [];
+
         foreach ($this->query("EXEC sp_tables @table_owner = 'dbo';") as $record) {
             $tables[strtolower($record['TABLE_NAME'])] = $record['TABLE_NAME'];
         }
+
         return $tables;
     }
 

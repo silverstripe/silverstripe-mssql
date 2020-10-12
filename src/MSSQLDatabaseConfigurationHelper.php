@@ -47,7 +47,9 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
                         $parameters['database'] = $databaseConfig['database'];
                         $parameters['multipleactiveresultsets'] = 0;
                     }
+
                     $conn = @sqlsrv_connect($databaseConfig['server'], $parameters);
+
                     if ($conn) {
                         return $conn;
                     }
