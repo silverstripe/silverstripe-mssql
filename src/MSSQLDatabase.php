@@ -504,6 +504,7 @@ class MSSQLDatabase extends Database
     {
         // Any DDL discards transactions.
         $isDDL = $this->getConnector()->isQueryDDL($sql);
+
         if ($isDDL) {
             $this->resetTransactionNesting();
         }

@@ -2,9 +2,9 @@
 
 namespace SilverStripe\MSSQL;
 
-use DateTime;
+use SilverStripe\ORM\Connect\DatabaseException;
 use SilverStripe\ORM\Connect\Query;
-use function sqlsrv_next_result;
+use function sqlsrv_fetch_array;
 use function sqlsrv_num_rows;
 use function sqlsrv_free_stmt;
 use const SQLSRV_SCROLL_ABSOLUTE;
@@ -20,14 +20,14 @@ class SQLServerQuery extends Query
      *
      * @var SQLServerConnector
      */
-    private $connector;
+    protected $connector;
 
     /**
      * The internal MSSQL handle that points to the result set.
      *
      * @var resource
      */
-    private $handle;
+    protected $handle;
 
     /**
      * Hook the result-set given into a Query class, suitable for use by sapphire.
@@ -63,11 +63,23 @@ class SQLServerQuery extends Query
 
     public function nextRecord()
     {
-        return sqlsrv_next_result($this->handle);
+        if (is_resource($this->handle)) {
+            $row = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_ASSOC);
+
+            return $row;
+        } else {
+            return false;
+        }
     }
 
     public function seek($row)
     {
-        return sqlsrv_fetch($this->handle, SQLSRV_SCROLL_ABSOLUTE, $row);
+        if (is_object($this->handle)) {
+            sqlsrv_fetch($this->handle, SQLSRV_SCROLL_ABSOLUTE, $row);
+            $result = $this->nextRecord();
+            sqlsrv_fetch($this->handle, SQLSRV_SCROLL_ABSOLUTE, $row);
+            return $result;
+        }
+        return null;
     }
 }
