@@ -147,6 +147,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     public function databaseExists($name)
     {
         $databases = $this->databaseList();
+
         foreach ($databases as $dbname) {
             if ($dbname == $name) {
                 return true;
@@ -183,7 +184,6 @@ class MSSQLSchemaManager extends DBSchemaManager
 
         // Temporary tables start with "#" in MSSQL-land
         if (!empty($options['temporary'])) {
-            // Randomize the temp table name to avoid conflicts in the tempdb table which derived databases share
             $tableName = "#$tableName" . '-' . rand(1000000, 9999999);
         }
 
@@ -193,7 +193,7 @@ class MSSQLSchemaManager extends DBSchemaManager
                 primary key (\"ID\")
             );");
         } catch (Exception $e) {
-            //
+            $this->alterationMessage('Could not CREATE TABLE '. $tableName .': '. $e->getMessage(), 'error');
         }
 
         // we need to generate indexes like this: CREATE INDEX IX_vault_to_export ON vault (to_export);
@@ -491,20 +491,21 @@ class MSSQLSchemaManager extends DBSchemaManager
             is_nullable, character_maximum_length, numeric_precision, numeric_scale, collation_name
             FROM information_schema.columns WHERE table_name = ?
             ORDER BY ordinal_position;",
-            array($table)
+            [$table]
         );
 
         // Cache the records from the query - otherwise a lack of multiple active result sets
         // will cause subsequent queries to fail in this method
-        $fields = array();
-        $output = array();
+        $fields = [];
+        $output = [];
+
         foreach ($fieldRecords as $record) {
-            $fields[] = $record;
+            if ($record) {
+                $fields[] = $record;
+            }
         }
 
         foreach ($fields as $field) {
-            // Update the data_type field to be a complete column definition string for use by
-            // SS_Database::requireField()
             switch ($field['data_type']) {
                 case 'int':
                 case 'bigint':
@@ -514,16 +515,17 @@ class MSSQLSchemaManager extends DBSchemaManager
                     if ($field['data_type'] != 'bigint' && $field['data_type'] != 'int' && $sizeSuffix = $field['numeric_precision']) {
                         $field['data_type'] .= "($sizeSuffix)";
                     }
-
                     if ($field['is_nullable'] == 'YES') {
                         $field['data_type'] .= ' null';
                     } else {
                         $field['data_type'] .= ' not null';
                     }
+
                     if ($field['column_default']) {
-                        $default=substr($field['column_default'], 2, -2);
+                        $default = substr($field['column_default'], 2, -2);
                         $field['data_type'] .= " default $default";
                     }
+
                     break;
 
                 case 'decimal':
@@ -537,33 +539,40 @@ class MSSQLSchemaManager extends DBSchemaManager
                     } else {
                         $field['data_type'] .= ' not null';
                     }
+
                     if ($field['column_default']) {
-                        $default=substr($field['column_default'], 2, -2);
+                        $default = substr($field['column_default'], 2, -2);
                         $field['data_type'] .= " default $default";
                     }
+
                     break;
 
                 case 'nvarchar':
                 case 'varchar':
                     //Check to see if there's a constraint attached to this column:
                     $clause = $this->getConstraintCheckClause($table, $field['column_name']);
+
                     if ($clause) {
                         $constraints = $this->enumValuesFromCheckClause($clause);
-                        $default=substr($field['column_default'], 2, -2);
+                        $default = substr($field['column_default'], 2, -2);
+
                         $field['data_type'] = $this->enum(array(
                             'default' => $default,
                             'name' => $field['column_name'],
                             'enums' => $constraints,
                             'table' => $table
                         ));
+
                         break;
                     }
 
                 default:
                     $sizeSuffix = $field['character_maximum_length'];
+
                     if ($sizeSuffix == '-1') {
                         $sizeSuffix = 'max';
                     }
+
                     if ($sizeSuffix) {
                         $field['data_type'] .= "($sizeSuffix)";
                     }
@@ -573,11 +582,14 @@ class MSSQLSchemaManager extends DBSchemaManager
                     } else {
                         $field['data_type'] .= ' not null';
                     }
-                    if ($field['column_default']) {
-                        $default=substr($field['column_default'], 2, -2);
+
+                    if (isset($field['column_default']) && $field['column_default']) {
+                        $default = substr($field['column_default'], 2, -2);
+
                         $field['data_type'] .= " default '$default'";
                     }
             }
+
             $output[$field['column_name']] = $field;
         }
 
@@ -664,11 +676,9 @@ class MSSQLSchemaManager extends DBSchemaManager
             $baseIndexName = $this->buildMSSQLIndexName($table, '');
             $indexName = substr($index['index_name'], strlen($baseIndexName));
 
-            // Extract columns
-            $columns = $this->quoteColumnSpecString($index['index_keys']);
             $indexList[$indexName] = [
                 'name' => $indexName,
-                'columns' => $columns,
+                'columns' => $this->explodeColumnString($index['index_keys']),
                 'type' => $indexType
             ];
         }
@@ -688,7 +698,7 @@ class MSSQLSchemaManager extends DBSchemaManager
             if (!empty($columns)) {
                 $indexList['SearchFields'] = [
                     'name' => 'SearchFields',
-                    'columns' => $this->implodeColumnList($columns),
+                    'columns' => $columns,
                     'type' => 'fulltext'
                 ];
             }
@@ -914,10 +924,10 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     public function hasTable($tableName)
     {
-        return (bool)$this->preparedQuery(
-            "SELECT table_name FROM information_schema.tables WHERE table_name = ?",
-            array($tableName)
-        )->value();
+        $sqlTable = str_replace('_', '\\_', $this->database->quoteString($tableName));
+        $has = $this->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = $sqlTable")->value();
+
+        return ($has && $has > 0);
     }
 
     /**
@@ -930,7 +940,7 @@ class MSSQLSchemaManager extends DBSchemaManager
      */
     public function enumValuesForField($tableName, $fieldName)
     {
-        $classes = array();
+        $classes = [];
 
         // Get the enum of all page types from the SiteTree table
         $clause = $this->getConstraintCheckClause($tableName, $fieldName);
@@ -942,11 +952,6 @@ class MSSQLSchemaManager extends DBSchemaManager
     }
 
     /**
-     * This is a lookup table for data types.
-     *
-     * For instance, MSSQL uses 'BIGINT', while MySQL uses 'UNSIGNED'
-     * and PostgreSQL uses 'INT'.
-     *
      * @param string $type
      * @return string
      */
@@ -955,6 +960,7 @@ class MSSQLSchemaManager extends DBSchemaManager
         $values = array(
             'unsigned integer'=>'BIGINT'
         );
+
         if (isset($values[$type])) {
             return $values[$type];
         } else {
