@@ -2,6 +2,7 @@
     "name": "silverstripe/mssql",
     "description": "Adds MSSQL support to SilverStripe",
     "type": "silverstripe-vendormodule",
+    "license": "BSD-3-Clause",
     "keywords": ["silverstripe", "mssql", "database"],
     "authors": [
         {
