@@ -154,6 +154,21 @@ class SQLServerConnector extends DBConnector
 
         // Check for error
         if (!$handle) {
+            $error = $this->getLastError();
+
+            if (preg_match("/Cannot insert explicit value for identity column in table '(.*)'/", $error, $matches)) {
+                sqlsrv_query($this->dbConn, "SET IDENTITY_INSERT \"$matches[1]\" ON");
+                $result = $this->preparedQuery($sql, $parameters, $errorLevel);
+
+                if ($result) {
+                    sqlsrv_query($this->dbConn, "SET IDENTITY_INSERT \"$matches[1]\" OFF");
+
+                    return $result;
+                } else {
+                    return null;
+                }
+            }
+
             $this->databaseError($this->getLastError(), $errorLevel, $sql, $parsedParameters);
             return null;
         }

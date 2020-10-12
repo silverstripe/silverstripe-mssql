@@ -1,35 +1,39 @@
 {
-	"name": "silverstripe/mssql",
-	"description": "Adds MSSQL support to SilverStripe",
-	"type": "silverstripe-vendormodule",
-	"keywords": ["silverstripe", "mssql", "database"],
-	"authors": [
-		{
-			"name": "Sam Minnee",
-			"email": "sam@silverstripe.com"
-		},
-		{
-			"name": "Sean Harvey",
-			"email": "sean@silverstripe.com"
-		}
-	],
-	"require": {
-		"silverstripe/framework": "^4"
-	},
-	"suggest": {
+    "name": "silverstripe/mssql",
+    "description": "Adds MSSQL support to SilverStripe",
+    "type": "silverstripe-vendormodule",
+    "keywords": ["silverstripe", "mssql", "database"],
+    "authors": [
+        {
+            "name": "Sam Minnee",
+            "email": "sam@silverstripe.com"
+        },
+        {
+            "name": "Sean Harvey",
+            "email": "sean@silverstripe.com"
+        }
+    ],
+    "require": {
+        "silverstripe/framework": "^4"
+    },
+    "suggest": {
         "ext-sqlsrv": "Required to support MSSQLDatabase as the server type",
         "ext-pdo_sqlsrv": "Required to support MSSQLPDODatabase as the server type"
-	},
-	"extra": {
-		"branch-alias": {
-			"dev-master": "3.x-dev"
-		}
-	},
-	"autoload": {
-		"psr-4": {
-			"SilverStripe\\MSSQL\\": "src/"
-		}
-	},
-	"prefer-stable": true,
-	"minimum-stability": "dev"
+    },
+    "scripts": {
+        "lint": "phpcs src/ tests/php/",
+        "lint-clean": "phpcbf src/ tests/php/"
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "3.x-dev"
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "SilverStripe\\MSSQL\\": "src/"
+        }
+    },
+    "prefer-stable": true,
+    "minimum-stability": "dev"
 }
