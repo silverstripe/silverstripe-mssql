@@ -241,11 +241,13 @@ class MSSQLSchemaManager extends DBSchemaManager
                 $alterList[] = $this->alterTableAlterColumn($tableName, $k, $v);
             }
         }
+
         if ($alteredIndexes) {
             foreach ($alteredIndexes as $k => $v) {
                 $alterList[] = $this->getIndexSqlDefinition($tableName, $k, $v);
             }
         }
+
         if ($newIndexes) {
             foreach ($newIndexes as $k => $v) {
                 $alterList[] = $this->getIndexSqlDefinition($tableName, $k, $v);
@@ -968,8 +970,13 @@ class MSSQLSchemaManager extends DBSchemaManager
         }
     }
 
-    protected function indexKey($table, $index, $spec)
+    /**
+     * @param string $tableName
+     * @param string $indexName
+     * @param mixed $spec
+     */
+    protected function indexKey($tableName, $indexName, $spec)
     {
-        return $index;
+        return $this->buildMSSQLIndexName($tableName, $indexName);
     }
 }

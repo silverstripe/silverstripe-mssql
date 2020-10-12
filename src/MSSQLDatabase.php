@@ -451,6 +451,7 @@ class MSSQLDatabase extends Database
         if (!$this->transactionNesting) {
             return false;
         }
+
         --$this->transactionNesting;
         if ($this->transactionNesting > 0) {
             $this->transactionRollback('NESTEDTRANSACTION' . $this->transactionNesting);
