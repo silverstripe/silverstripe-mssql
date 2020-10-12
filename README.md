@@ -3,8 +3,8 @@
 Allows SilverStripe to use SQL Server databases including SQL databases on Azure.
 
 [![Build status](https://ci.appveyor.com/api/projects/status/hep0l5kbhu64n7l3/branch/master?svg=true)](https://ci.appveyor.com/project/silverstripe/silverstripe-mssql/branch/master)
-[![Version](http://img.shields.io/packagist/v/silverstripe/silverstripe-mssql.svg?style=flat-square)](https://packagist.org/packages/silverstripe/silverstripe-mssql)
-[![License](http://img.shields.io/packagist/l/silverstripe/silverstripe-mssql.svg?style=flat-square)](LICENSE)
+[![Version](http://img.shields.io/packagist/v/silverstripe/mssql.svg?style=flat-square)](https://packagist.org/packages/silverstripe/mssql)
+[![License](http://img.shields.io/packagist/l/silverstripe/mssql.svg?style=flat-square)](LICENSE)
 
 ## Requirements
 
