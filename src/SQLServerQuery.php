@@ -50,7 +50,7 @@ class SQLServerQuery extends Query
     public function numRecords()
     {
         if (!is_resource($this->handle)) {
-            return false;
+            return null;
         }
 
         // WARNING: This will only work if the cursor type is scrollable!
@@ -64,12 +64,14 @@ class SQLServerQuery extends Query
     public function nextRecord()
     {
         if (is_resource($this->handle)) {
-            $row = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_ASSOC);
+            $result = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_ASSOC);
 
-            return $row;
-        } else {
-            return false;
+            if ($result && !empty($result)) {
+                return $result;
+            }
         }
+
+        return false;
     }
 
     public function seek($row)
@@ -77,9 +79,11 @@ class SQLServerQuery extends Query
         if (is_resource($this->handle)) {
             $result = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_ASSOC, SQLSRV_SCROLL_ABSOLUTE, $row);
 
-            return $result;
+            if ($result && !empty($result)) {
+                return $result;
+            }
         }
 
-        return null;
+        return false;
     }
 }

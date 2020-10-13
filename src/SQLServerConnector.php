@@ -144,7 +144,11 @@ class SQLServerConnector extends DBConnector
         $this->lastAffectedRows = 0;
 
         // Run query
-        $parsedParameters = $this->parameterValues($parameters);
+        if ($parameters) {
+            $parsedParameters = $this->parameterValues($parameters);
+        } else {
+            $parsedParameters = [];
+        }
 
         if (empty($parsedParameters)) {
             $handle = sqlsrv_query($this->dbConn, $sql);
@@ -170,6 +174,7 @@ class SQLServerConnector extends DBConnector
             }
 
             $this->databaseError($this->getLastError(), $errorLevel, $sql, $parsedParameters);
+
             return null;
         }
 
