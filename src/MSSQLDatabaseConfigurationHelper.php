@@ -45,7 +45,8 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
                     // Azure has additional parameter requirements
                     if ($this->isAzure($databaseConfig)) {
                         $parameters['database'] = $databaseConfig['database'];
-                        $parameters['multipleactiveresultsets'] = 0;
+                        $parameters['multipleactiveresultsets'] = 1;
+                        $parameters['returndatesasstrings'] = 1;
                     }
 
                     $conn = @sqlsrv_connect($databaseConfig['server'], $parameters);

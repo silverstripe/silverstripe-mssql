@@ -57,6 +57,7 @@ class MSSQLAzureDatabase extends MSSQLDatabase
     {
         $parameters = $this->parameters;
         $parameters['database'] = $database;
+        $parameters['returndatesasstrings'] = 1;
         $parameters['multipleactiveresultsets'] = 1;
 
         // Ensure that driver is available (required by PDO)

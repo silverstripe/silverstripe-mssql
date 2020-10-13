@@ -47,13 +47,16 @@ class SQLServerConnector extends DBConnector
         }
 
         $charset = isset($parameters['charset']) ? $parameters : 'UTF-8';
-        $multiResultSets = isset($parameters['multipleactiveresultsets'])
-                ? $parameters['multipleactiveresultsets']
-                : true;
-        $options = array(
+
+        $options = [
             'CharacterSet' => $charset,
-            'MultipleActiveResultSets' => $multiResultSets
-        );
+            'ReturnDatesAsStrings' => isset($parameters['returndatesasstrings'])
+                ? $parameters['returndatesasstrings']
+                : true,
+            'MultipleActiveResultSets' => isset($parameters['multipleactiveresultsets'])
+                ? $parameters['multipleactiveresultsets']
+                : true
+        ];
 
         if (!(defined('MSSQL_USE_WINDOWS_AUTHENTICATION') && MSSQL_USE_WINDOWS_AUTHENTICATION == true)
             && empty($parameters['windowsauthentication'])
