@@ -74,12 +74,12 @@ class SQLServerQuery extends Query
 
     public function seek($row)
     {
-        if (is_object($this->handle)) {
-            sqlsrv_fetch($this->handle, SQLSRV_SCROLL_ABSOLUTE, $row);
-            $result = $this->nextRecord();
-            sqlsrv_fetch($this->handle, SQLSRV_SCROLL_ABSOLUTE, $row);
+        if (is_resource($this->handle)) {
+            $result = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_ASSOC, SQLSRV_SCROLL_ABSOLUTE, $row);
+
             return $result;
         }
+
         return null;
     }
 }
