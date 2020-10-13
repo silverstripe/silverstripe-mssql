@@ -45,9 +45,12 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
                     // Azure has additional parameter requirements
                     if ($this->isAzure($databaseConfig)) {
                         $parameters['database'] = $databaseConfig['database'];
-                        $parameters['multipleactiveresultsets'] = 0;
+                        $parameters['multipleactiveresultsets'] = 1;
+                        $parameters['returndatesasstrings'] = 1;
                     }
+
                     $conn = @sqlsrv_connect($databaseConfig['server'], $parameters);
+
                     if ($conn) {
                         return $conn;
                     }
@@ -96,11 +99,13 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
         if (!class_exists('PDO')) {
             return null;
         }
+
         foreach(PDO::getAvailableDrivers() as $driver) {
-            if(in_array($driver, array('sqlsrv', 'dblib'))) {
+            if (in_array($driver, array('sqlsrv', 'dblib'))) {
                 return $driver;
             }
         }
+
         return null;
     }
 
@@ -122,6 +127,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
         } else {
             user_error('Invalid database connection', E_USER_ERROR);
         }
+
         return null;
     }
 
@@ -150,6 +156,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
                 }
             }
         }
+
         return $items;
     }
 
@@ -256,6 +263,7 @@ class MSSQLDatabaseConfigurationHelper implements DatabaseConfigurationHelper
                 // Make sure to select the current database when checking permission against this database
                 $this->query($conn, "USE \"{$databaseConfig['database']}\"");
             }
+
             $permissions = $this->query($conn, "select COUNT(*) from sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name like 'create table';");
             $success = $permissions[0] > 0;
         }

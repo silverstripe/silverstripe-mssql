@@ -2,8 +2,12 @@
 
 namespace SilverStripe\MSSQL;
 
-use DateTime;
+use SilverStripe\ORM\Connect\DatabaseException;
 use SilverStripe\ORM\Connect\Query;
+use function sqlsrv_fetch_array;
+use function sqlsrv_num_rows;
+use function sqlsrv_free_stmt;
+use const SQLSRV_SCROLL_ABSOLUTE;
 
 /**
  * A result-set from a MSSQL database.
@@ -16,14 +20,14 @@ class SQLServerQuery extends Query
      *
      * @var SQLServerConnector
      */
-    private $connector;
+    protected $connector;
 
     /**
      * The internal MSSQL handle that points to the result set.
      *
      * @var resource
      */
-    private $handle;
+    protected $handle;
 
     /**
      * Hook the result-set given into a Query class, suitable for use by sapphire.
@@ -43,27 +47,10 @@ class SQLServerQuery extends Query
         }
     }
 
-    public function getIterator()
-    {
-        if (is_resource($this->handle)) {
-            while ($data = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_ASSOC)) {
-                // special case for sqlsrv - date values are DateTime coming out of the sqlsrv drivers,
-                // so we convert to the usual Y-m-d H:i:s value!
-                foreach ($data as $name => $value) {
-                    if ($value instanceof DateTime) {
-                        $data[$name] = $value->format('Y-m-d H:i:s');
-                    }
-                }
-
-                yield $data;
-            }
-        }
-    }
-
     public function numRecords()
     {
         if (!is_resource($this->handle)) {
-            return false;
+            return null;
         }
 
         // WARNING: This will only work if the cursor type is scrollable!
@@ -72,5 +59,31 @@ class SQLServerQuery extends Query
         } else {
             user_error('MSSQLQuery::numRecords() not supported in this version of sqlsrv', E_USER_WARNING);
         }
+    }
+
+    public function nextRecord()
+    {
+        if (is_resource($this->handle)) {
+            $result = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_ASSOC);
+
+            if ($result && !empty($result)) {
+                return $result;
+            }
+        }
+
+        return false;
+    }
+
+    public function seek($row)
+    {
+        if (is_resource($this->handle)) {
+            $result = sqlsrv_fetch_array($this->handle, SQLSRV_FETCH_ASSOC, SQLSRV_SCROLL_ABSOLUTE, $row);
+
+            if ($result && !empty($result)) {
+                return $result;
+            }
+        }
+
+        return false;
     }
 }

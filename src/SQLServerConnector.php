@@ -3,6 +3,12 @@
 namespace SilverStripe\MSSQL;
 
 use SilverStripe\ORM\Connect\DBConnector;
+use function sqlsrv_connect;
+use function sqlsrv_begin_transaction;
+use function sqlsrv_rollback;
+use function sqlsrv_query;
+
+use const MSSQL_USE_WINDOWS_AUTHENTICATION;
 
 /**
  * Database connector driver for sqlsrv_ library
@@ -41,13 +47,16 @@ class SQLServerConnector extends DBConnector
         }
 
         $charset = isset($parameters['charset']) ? $parameters : 'UTF-8';
-        $multiResultSets = isset($parameters['multipleactiveresultsets'])
-                ? $parameters['multipleactiveresultsets']
-                : true;
-        $options = array(
+
+        $options = [
             'CharacterSet' => $charset,
-            'MultipleActiveResultSets' => $multiResultSets
-        );
+            'ReturnDatesAsStrings' => isset($parameters['returndatesasstrings'])
+                ? $parameters['returndatesasstrings']
+                : true,
+            'MultipleActiveResultSets' => isset($parameters['multipleactiveresultsets'])
+                ? $parameters['multipleactiveresultsets']
+                : true
+        ];
 
         if (!(defined('MSSQL_USE_WINDOWS_AUTHENTICATION') && MSSQL_USE_WINDOWS_AUTHENTICATION == true)
             && empty($parameters['windowsauthentication'])
@@ -77,6 +86,7 @@ class SQLServerConnector extends DBConnector
     public function transactionStart()
     {
         $result = sqlsrv_begin_transaction($this->dbConn);
+
         if (!$result) {
             $this->databaseError("Couldn't start the transaction.");
         }
@@ -88,6 +98,7 @@ class SQLServerConnector extends DBConnector
     public function transactionEnd()
     {
         $result = sqlsrv_commit($this->dbConn);
+
         if (!$result) {
             $this->databaseError("Couldn't commit the transaction.");
         }
@@ -115,11 +126,13 @@ class SQLServerConnector extends DBConnector
     {
         $errorMessages = array();
         $errors = sqlsrv_errors();
+
         if ($errors) {
             foreach ($errors as $info) {
                 $errorMessages[] = implode(', ', array($info['SQLSTATE'], $info['code'], $info['message']));
             }
         }
+
         return implode('; ', $errorMessages);
     }
 
@@ -134,7 +147,12 @@ class SQLServerConnector extends DBConnector
         $this->lastAffectedRows = 0;
 
         // Run query
-        $parsedParameters = $this->parameterValues($parameters);
+        if ($parameters) {
+            $parsedParameters = $this->parameterValues($parameters);
+        } else {
+            $parsedParameters = [];
+        }
+
         if (empty($parsedParameters)) {
             $handle = sqlsrv_query($this->dbConn, $sql);
         } else {
@@ -143,18 +161,34 @@ class SQLServerConnector extends DBConnector
 
         // Check for error
         if (!$handle) {
+            $error = $this->getLastError();
+
+            if (preg_match("/Cannot insert explicit value for identity column in table '(.*)'/", $error, $matches)) {
+                sqlsrv_query($this->dbConn, "SET IDENTITY_INSERT \"$matches[1]\" ON");
+                $result = $this->preparedQuery($sql, $parameters, $errorLevel);
+
+                if ($result) {
+                    sqlsrv_query($this->dbConn, "SET IDENTITY_INSERT \"$matches[1]\" OFF");
+
+                    return $result;
+                } else {
+                    return null;
+                }
+            }
+
             $this->databaseError($this->getLastError(), $errorLevel, $sql, $parsedParameters);
+
             return null;
         }
 
-        // Report result
         $this->lastAffectedRows = sqlsrv_rows_affected($handle);
+
         return new SQLServerQuery($this, $handle);
     }
 
     public function query($sql, $errorLevel = E_USER_ERROR)
     {
-        return $this->preparedQuery($sql, array(), $errorLevel);
+        return $this->preparedQuery($sql, [], $errorLevel);
     }
 
     public function selectDatabase($name)
@@ -173,7 +207,6 @@ class SQLServerConnector extends DBConnector
 
     public function getVersion()
     {
-        // @todo - use sqlsrv_server_info?
         return trim($this->query("SELECT CONVERT(char(15), SERVERPROPERTY('ProductVersion'))")->value());
     }
 
