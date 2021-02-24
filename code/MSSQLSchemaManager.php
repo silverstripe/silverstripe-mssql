@@ -390,7 +390,7 @@ class MSSQLSchemaManager extends DBSchemaManager
         // First, we split the column specifications into parts
         // TODO: this returns an empty array for the following string: int(11) not null auto_increment
         //		 on second thoughts, why is an auto_increment field being passed through?
-        $pattern = '/^(?<definition>[\w()]+)\s?(?<null>(?:not\s)?null)?\s?(?<default>default\s[\w\']+)?\s?(?<check>check\s?[\w()\'",\s]+)?$/i';
+        $pattern = '/^(?<definition>[\w()]+)\s?(?<null>(?:not\s)?null)?\s?(?<default>default\s[\w\'\\\\]+)?\s?(?<check>check\s?[\w()\'"\\\\,\s]+)?/i';
         $matches = array();
         preg_match($pattern, $colSpec, $matches);
 
