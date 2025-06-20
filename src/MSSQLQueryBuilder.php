@@ -5,6 +5,8 @@ namespace SilverStripe\MSSQL;
 use InvalidArgumentException;
 use SilverStripe\ORM\Queries\SQLSelect;
 use SilverStripe\ORM\Connect\DBQueryBuilder;
+use SilverStripe\ORM\Queries\SQLConditionalExpression;
+use SilverStripe\ORM\Queries\SQLUpdate;
 
 /**
  * Builds a SQL query string from a SQLExpression object
@@ -69,6 +71,7 @@ class MSSQLQueryBuilder extends DBQueryBuilder
             $parameters[] = $offset + 1;
             $parameters[] = $offset + $limit;
         }
+
         return "SELECT * FROM ($sql) AS Numbered WHERE $limitCondition ORDER BY Number";
     }
 
@@ -88,6 +91,21 @@ class MSSQLQueryBuilder extends DBQueryBuilder
         return '';
     }
 
+    public function buildWhereFragment(SQLConditionalExpression $query, array &$parameters)
+    {
+        // Get parameterised elements
+        $where = parent::buildWhereFragment($query, $parameters);
+
+        if (!$where) {
+            return '';
+        }
+
+        // remove explict order in where
+        $where = preg_replace("/ORDER BY ([^\)])+ [ASC|DESC]+/", '', $where);
+
+        return $where;
+    }
+
     /**
      * Extracts the limit and offset from the limit clause
      *
@@ -99,6 +117,7 @@ class MSSQLQueryBuilder extends DBQueryBuilder
     {
         $limit = '';
         $offset = '0';
+
         if (is_array($query->getLimit())) {
             $limitArr = $query->getLimit();
             if (isset($limitArr['limit'])) {
@@ -119,6 +138,7 @@ class MSSQLQueryBuilder extends DBQueryBuilder
                 $limit = $bits[0];
             }
         }
+
         return array($limit, $offset);
     }
 }

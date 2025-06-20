@@ -9,12 +9,12 @@ DatabaseAdapterRegistry::register(array(
 	'class' => 'MSSQLPDODatabase',
     'module' => 'mssql',
 	'title' => 'SQL Server 2008 (using PDO)',
-	'helperPath' => __DIR__.'/code/MSSQLDatabaseConfigurationHelper.php',
+	'helperPath' => __DIR__.'/src/MSSQLDatabaseConfigurationHelper.php',
     'helperClass' => MSSQLDatabaseConfigurationHelper::class,
 	'supported' => !!MSSQLDatabaseConfigurationHelper::getPDODriver(),
 	'missingExtensionText' =>
-		'Either the <a href="http://www.php.net/manual/en/book.pdo.php">PDO Extension</a> or 
-		the <a href="http://www.php.net/manual/en/ref.pdo-sqlsrv.php">SQL Server PDO Driver</a> 
+		'Either the <a href="http://www.php.net/manual/en/book.pdo.php">PDO Extension</a> or
+		the <a href="http://www.php.net/manual/en/ref.pdo-sqlsrv.php">SQL Server PDO Driver</a>
 		are unavailable. Please install or enable these and refresh this page.'
 ));
 
@@ -24,7 +24,7 @@ DatabaseAdapterRegistry::register(array(
 	'class' => 'MSSQLDatabase',
     'module' => 'mssql',
 	'title' => 'SQL Server 2008 (using sqlsrv)',
-	'helperPath' => __DIR__.'/code/MSSQLDatabaseConfigurationHelper.php',
+	'helperPath' => __DIR__.'/src/MSSQLDatabaseConfigurationHelper.php',
     'helperClass' => MSSQLDatabaseConfigurationHelper::class,
 	'supported' => function_exists('sqlsrv_connect'),
 	'missingExtensionText' =>
@@ -45,7 +45,7 @@ DatabaseAdapterRegistry::register(array(
 	'class' => 'MSSQLAzureDatabase',
     'module' => 'mssql',
 	'title' => 'MS Azure Database (using sqlsrv)',
-	'helperPath' => __DIR__.'/code/MSSQLDatabaseConfigurationHelper.php',
+	'helperPath' => __DIR__.'/src/MSSQLDatabaseConfigurationHelper.php',
     'helperClass' => MSSQLDatabaseConfigurationHelper::class,
 	'supported' => function_exists('sqlsrv_connect'),
 	'missingExtensionText' =>

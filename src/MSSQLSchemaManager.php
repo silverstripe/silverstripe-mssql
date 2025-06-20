@@ -2,10 +2,11 @@
 
 namespace SilverStripe\MSSQL;
 
+use Exception;
 use SilverStripe\ORM\Connect\DBSchemaManager;
 
 /**
- * Represents and handles all schema management for a MS SQL database
+ * Represents and handles all schema management for a MSSQL database
  */
 class MSSQLSchemaManager extends DBSchemaManager
 {
@@ -15,7 +16,7 @@ class MSSQLSchemaManager extends DBSchemaManager
      *
      * @var array
      */
-    protected static $cached_checks = array();
+    protected static $cached_checks = [];
 
     /**
      * Builds the internal MS SQL Server index name given the silverstripe table and index name
@@ -27,8 +28,6 @@ class MSSQLSchemaManager extends DBSchemaManager
      */
     public function buildMSSQLIndexName($tableName, $indexName, $prefix = 'ix')
     {
-
-        // Cleanup names of namespaced tables
         $tableName = str_replace('\\', '_', $tableName);
         $indexName = str_replace('\\', '_', $indexName);
 
@@ -107,9 +106,9 @@ class MSSQLSchemaManager extends DBSchemaManager
         }
 
         return (bool) $this->preparedQuery("
-			SELECT 1 FROM sys.fulltext_indexes i
-			JOIN sys.objects o ON i.object_id = o.object_id
-			WHERE o.name = ?",
+            SELECT 1 FROM sys.fulltext_indexes i
+            JOIN sys.objects o ON i.object_id = o.object_id
+            WHERE o.name = ?",
             array($tableName)
         )->value();
     }
@@ -135,27 +134,6 @@ class MSSQLSchemaManager extends DBSchemaManager
         return $indexName;
     }
 
-    /**
-     * Gets the identity column of a table
-     *
-     * @param string $tableName
-     * @return string|null
-     */
-    public function getIdentityColumn($tableName)
-    {
-        return $this->preparedQuery("
-			SELECT
-				TABLE_NAME + '.' + COLUMN_NAME,
-				TABLE_NAME
- 			FROM
-				INFORMATION_SCHEMA.COLUMNS
- 			WHERE
-				TABLE_SCHEMA = ? AND
-				COLUMNPROPERTY(object_id(TABLE_NAME), COLUMN_NAME, 'IsIdentity') = 1 AND
-				TABLE_NAME = ?
-		", array('dbo', $tableName))->value();
-    }
-
     public function createDatabase($name)
     {
         $this->query("CREATE DATABASE \"$name\"");
@@ -169,6 +147,7 @@ class MSSQLSchemaManager extends DBSchemaManager
     public function databaseExists($name)
     {
         $databases = $this->databaseList();
+
         foreach ($databases as $dbname) {
             if ($dbname == $name) {
                 return true;
@@ -184,6 +163,7 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * Create a new table.
+     *
      * @param string $tableName The name of the table
      * @param array $fields A map of field names to field types
      * @param array $indexes A map of indexes
@@ -204,17 +184,20 @@ class MSSQLSchemaManager extends DBSchemaManager
 
         // Temporary tables start with "#" in MSSQL-land
         if (!empty($options['temporary'])) {
-            // Randomize the temp table name to avoid conflicts in the tempdb table which derived databases share
             $tableName = "#$tableName" . '-' . rand(1000000, 9999999);
         }
 
-        $this->query("CREATE TABLE \"$tableName\" (
-			$fieldSchemas
-			primary key (\"ID\")
-		);");
+        try {
+            $this->query("CREATE TABLE \"$tableName\" (
+                $fieldSchemas
+                primary key (\"ID\")
+            );");
+        } catch (Exception $e) {
+            $this->alterationMessage('Could not CREATE TABLE '. $tableName .': '. $e->getMessage(), 'error');
+        }
 
-        //we need to generate indexes like this: CREATE INDEX IX_vault_to_export ON vault (to_export);
-        //This needs to be done AFTER the table creation, so we can set up the fulltext indexes correctly
+        // we need to generate indexes like this: CREATE INDEX IX_vault_to_export ON vault (to_export);
+        // This needs to be done AFTER the table creation, so we can set up the fulltext indexes correctly
         if ($indexes) {
             foreach ($indexes as $k => $v) {
                 $indexSchemas .= $this->getIndexSqlDefinition($tableName, $k, $v) . "\n";
@@ -258,11 +241,13 @@ class MSSQLSchemaManager extends DBSchemaManager
                 $alterList[] = $this->alterTableAlterColumn($tableName, $k, $v);
             }
         }
+
         if ($alteredIndexes) {
             foreach ($alteredIndexes as $k => $v) {
                 $alterList[] = $this->getIndexSqlDefinition($tableName, $k, $v);
             }
         }
+
         if ($newIndexes) {
             foreach ($newIndexes as $k => $v) {
                 $alterList[] = $this->getIndexSqlDefinition($tableName, $k, $v);
@@ -289,9 +274,9 @@ class MSSQLSchemaManager extends DBSchemaManager
     public function getConstraintName($tableName, $columnName)
     {
         return $this->preparedQuery("
-			SELECT CONSTRAINT_NAME
-			FROM INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE
-			WHERE TABLE_NAME = ? AND COLUMN_NAME = ?",
+            SELECT CONSTRAINT_NAME
+            FROM INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE
+            WHERE TABLE_NAME = ? AND COLUMN_NAME = ?",
             array($tableName, $columnName)
         )->value();
     }
@@ -321,10 +306,10 @@ class MSSQLSchemaManager extends DBSchemaManager
         // Regenerate cehcks for this table
         $checks = array();
         foreach ($this->preparedQuery("
-			SELECT CAST(CHECK_CLAUSE AS TEXT) AS CHECK_CLAUSE, COLUMN_NAME
-			FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC
-			INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME = CC.CONSTRAINT_NAME
-			WHERE TABLE_NAME = ?",
+            SELECT CAST(CHECK_CLAUSE AS TEXT) AS CHECK_CLAUSE, COLUMN_NAME
+            FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS AS CC
+            INNER JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS CCU ON CCU.CONSTRAINT_NAME = CC.CONSTRAINT_NAME
+            WHERE TABLE_NAME = ?",
             array($tableName)
         ) as $record) {
             $checks[$record['COLUMN_NAME']] = $record['CHECK_CLAUSE'];
@@ -346,13 +331,13 @@ class MSSQLSchemaManager extends DBSchemaManager
     protected function defaultConstraintName($tableName, $colName)
     {
         return $this->preparedQuery("
-			SELECT s.name --default name
-			FROM sys.sysobjects s
-			join sys.syscolumns c ON s.parent_obj = c.id
-			WHERE s.xtype = 'd'
-			and c.cdefault = s.id
-			and parent_obj = OBJECT_ID(?)
-			and c.name = ?",
+            SELECT s.name --default name
+            FROM sys.sysobjects s
+            join sys.syscolumns c ON s.parent_obj = c.id
+            WHERE s.xtype = 'd'
+            and c.cdefault = s.id
+            and parent_obj = OBJECT_ID(?)
+            and c.name = ?",
             array($tableName, $colName)
         )->value();
     }
@@ -414,7 +399,8 @@ class MSSQLSchemaManager extends DBSchemaManager
         }
 
         if (isset($matches['definition'])) {
-            //We will prevent any changes being made to the ID column.  Primary key indexes will have a fit if we do anything here.
+            // We will prevent any changes being made to the ID column.
+            // Primary key indexes will have a fit if we do anything here.
             if ($colName != 'ID') {
 
                 // SET null / not null
@@ -442,6 +428,10 @@ class MSSQLSchemaManager extends DBSchemaManager
         return implode("\n", $alterQueries);
     }
 
+    /**
+     * @param string $oldTableName
+     * @param string $newTableName
+     */
     public function renameTable($oldTableName, $newTableName)
     {
         $this->query("EXEC sp_rename \"$oldTableName\", \"$newTableName\"");
@@ -459,6 +449,11 @@ class MSSQLSchemaManager extends DBSchemaManager
         return true;
     }
 
+    /**
+     * @param string $tableName
+     * @param string $fieldName
+     * @param string $fieldSpec
+     */
     public function createField($tableName, $fieldName, $fieldSpec)
     {
         $this->query("ALTER TABLE \"$tableName\" ADD \"$fieldName\" $fieldSpec");
@@ -466,6 +461,7 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * Change the database type of the given field.
+     *
      * @param string $tableName The name of the tbale the field is in.
      * @param string $fieldName The name of the field to change.
      * @param string $fieldSpec The new field specification
@@ -475,32 +471,43 @@ class MSSQLSchemaManager extends DBSchemaManager
         $this->query("ALTER TABLE \"$tableName\" CHANGE \"$fieldName\" \"$fieldName\" $fieldSpec");
     }
 
+    /**
+     * @param string $tableName
+     * @param string $oldName
+     * @param string $newName
+     *
+     */
     public function renameField($tableName, $oldName, $newName)
     {
         $this->query("EXEC sp_rename @objname = '$tableName.$oldName', @newname = '$newName', @objtype = 'COLUMN'");
     }
 
+    /**
+     * @param string $table
+     *
+     * @return array
+     */
     public function fieldList($table)
     {
-        //This gets us more information than we need, but I've included it all for the moment....
         $fieldRecords = $this->preparedQuery("SELECT ordinal_position, column_name, data_type, column_default,
-			is_nullable, character_maximum_length, numeric_precision, numeric_scale, collation_name
-			FROM information_schema.columns WHERE table_name = ?
-			ORDER BY ordinal_position;",
-            array($table)
+            is_nullable, character_maximum_length, numeric_precision, numeric_scale, collation_name
+            FROM information_schema.columns WHERE table_name = ?
+            ORDER BY ordinal_position;",
+            [$table]
         );
 
         // Cache the records from the query - otherwise a lack of multiple active result sets
         // will cause subsequent queries to fail in this method
-        $fields = array();
-        $output = array();
+        $fields = [];
+        $output = [];
+
         foreach ($fieldRecords as $record) {
-            $fields[] = $record;
+            if ($record) {
+                $fields[] = $record;
+            }
         }
 
         foreach ($fields as $field) {
-            // Update the data_type field to be a complete column definition string for use by
-            // SS_Database::requireField()
             switch ($field['data_type']) {
                 case 'int':
                 case 'bigint':
@@ -510,16 +517,17 @@ class MSSQLSchemaManager extends DBSchemaManager
                     if ($field['data_type'] != 'bigint' && $field['data_type'] != 'int' && $sizeSuffix = $field['numeric_precision']) {
                         $field['data_type'] .= "($sizeSuffix)";
                     }
-
                     if ($field['is_nullable'] == 'YES') {
                         $field['data_type'] .= ' null';
                     } else {
                         $field['data_type'] .= ' not null';
                     }
+
                     if ($field['column_default']) {
-                        $default=substr($field['column_default'], 2, -2);
+                        $default = substr($field['column_default'], 2, -2);
                         $field['data_type'] .= " default $default";
                     }
+
                     break;
 
                 case 'decimal':
@@ -533,33 +541,40 @@ class MSSQLSchemaManager extends DBSchemaManager
                     } else {
                         $field['data_type'] .= ' not null';
                     }
+
                     if ($field['column_default']) {
-                        $default=substr($field['column_default'], 2, -2);
+                        $default = substr($field['column_default'], 2, -2);
                         $field['data_type'] .= " default $default";
                     }
+
                     break;
 
                 case 'nvarchar':
                 case 'varchar':
                     //Check to see if there's a constraint attached to this column:
                     $clause = $this->getConstraintCheckClause($table, $field['column_name']);
+
                     if ($clause) {
                         $constraints = $this->enumValuesFromCheckClause($clause);
-                        $default=substr($field['column_default'], 2, -2);
+                        $default = substr($field['column_default'], 2, -2);
+
                         $field['data_type'] = $this->enum(array(
                             'default' => $default,
                             'name' => $field['column_name'],
                             'enums' => $constraints,
                             'table' => $table
                         ));
+
                         break;
                     }
 
                 default:
                     $sizeSuffix = $field['character_maximum_length'];
+
                     if ($sizeSuffix == '-1') {
                         $sizeSuffix = 'max';
                     }
+
                     if ($sizeSuffix) {
                         $field['data_type'] .= "($sizeSuffix)";
                     }
@@ -569,11 +584,14 @@ class MSSQLSchemaManager extends DBSchemaManager
                     } else {
                         $field['data_type'] .= ' not null';
                     }
-                    if ($field['column_default']) {
-                        $default=substr($field['column_default'], 2, -2);
+
+                    if (isset($field['column_default']) && $field['column_default']) {
+                        $default = substr($field['column_default'], 2, -2);
+
                         $field['data_type'] .= " default '$default'";
                     }
             }
+
             $output[$field['column_name']] = $field;
         }
 
@@ -591,6 +609,27 @@ class MSSQLSchemaManager extends DBSchemaManager
         $this->query($this->getIndexSqlDefinition($tableName, $indexName, $indexSpec));
     }
 
+
+    /**
+     * This takes the index spec which has been provided by a class (ie static $indexes = blah blah)
+     * and turns it into a proper string.
+     * Some indexes may be arrays, such as fulltext and unique indexes, and this allows database-specific
+     * arrays to be created. See {@link requireTable()} for details on the index format.
+     *
+     * @see http://dev.mysql.com/doc/refman/5.0/en/create-index.html
+     * @see parseIndexSpec() for approximate inverse
+     *
+     * @param string|array $indexSpec
+     * @return string
+     */
+    protected function convertIndexSpec($indexSpec)
+    {
+        $indexSpec['type'] = trim($indexSpec['type']);
+        $spec = parent::convertIndexSpec($indexSpec);
+
+        return $spec;
+    }
+
     /**
      * Return SQL for dropping and recreating an index
      *
@@ -602,12 +641,11 @@ class MSSQLSchemaManager extends DBSchemaManager
      */
     protected function getIndexSqlDefinition($tableName, $indexName, $indexSpec)
     {
+        if (is_array($indexSpec['columns'])) {
+            $indexSpec['columns'] = $this->implodeColumnList($indexSpec['columns']);
+        }
 
-        // Determine index name
         $index = $this->buildMSSQLIndexName($tableName, $indexName);
-
-        // Consolidate/Cleanup spec into array format
-        $indexSpec = $this->parseIndexSpec($indexName, $indexSpec);
 
         $drop = "IF EXISTS (SELECT name FROM sys.indexes WHERE name = '$index' AND object_id = object_id(SCHEMA_NAME() + '.$tableName')) DROP INDEX $index ON \"$tableName\";";
 
@@ -621,16 +659,16 @@ class MSSQLSchemaManager extends DBSchemaManager
             $primary_key = $this->getPrimaryKey($tableName);
 
             if ($primary_key) {
-                return "$drop CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['value']})"
+                return "$drop CREATE FULLTEXT INDEX ON \"$tableName\" ({$indexSpec['columns']})"
                      . "KEY INDEX $primary_key WITH CHANGE_TRACKING AUTO;";
             }
         }
 
         if ($indexSpec['type'] == 'unique') {
-            return "$drop CREATE UNIQUE INDEX $index ON \"$tableName\" ({$indexSpec['value']});";
+            return "$drop CREATE UNIQUE INDEX $index ON \"$tableName\" ({$indexSpec['columns']});";
         }
 
-        return "$drop CREATE INDEX $index ON \"$tableName\" ({$indexSpec['value']});";
+        return "$drop CREATE INDEX $index ON \"$tableName\" ({$indexSpec['columns']});";
     }
 
     public function alterIndex($tableName, $indexName, $indexSpec)
@@ -640,13 +678,14 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     /**
      * Return the list of indexes in a table.
+     *
      * @param string $table The table name.
      * @return array
      */
     public function indexList($table)
     {
         $indexes = $this->query("EXEC sp_helpindex '$table';");
-        $indexList = array();
+        $indexList = [];
 
         // Enumerate all basic indexes
         foreach ($indexes as $index) {
@@ -657,16 +696,14 @@ class MSSQLSchemaManager extends DBSchemaManager
             }
 
             // Extract name from index
-            $baseIndexName = $this->buildMSSQLIndexName($table, '');
+            $baseIndexName = $index['index_name'];
             $indexName = substr($index['index_name'], strlen($baseIndexName));
 
-            // Extract columns
-            $columns = $this->quoteColumnSpecString($index['index_keys']);
-            $indexList[$indexName] = $this->parseIndexSpec($indexName, array(
+            $indexList[$baseIndexName] = [
                 'name' => $indexName,
-                'value' => $columns,
+                'columns' => $this->explodeColumnString($index['index_keys']),
                 'type' => $indexType
-            ));
+            ];
         }
 
         // Now we need to check to see if we have any fulltext indexes attached to this table:
@@ -674,7 +711,7 @@ class MSSQLSchemaManager extends DBSchemaManager
             $result = $this->query('EXEC sp_help_fulltext_columns;');
 
             // Extract columns from this fulltext definition
-            $columns = array();
+            $columns = [];
             foreach ($result as $row) {
                 if ($row['TABLE_NAME'] == $table) {
                     $columns[] = $row['FULLTEXT_COLUMN_NAME'];
@@ -682,11 +719,11 @@ class MSSQLSchemaManager extends DBSchemaManager
             }
 
             if (!empty($columns)) {
-                $indexList['SearchFields'] = $this->parseIndexSpec('SearchFields', array(
+                $indexList['SearchFields'] = [
                     'name' => 'SearchFields',
-                    'value' => $this->implodeColumnList($columns),
+                    'columns' => $columns,
                     'type' => 'fulltext'
-                ));
+                ];
             }
         }
 
@@ -703,19 +740,21 @@ class MSSQLSchemaManager extends DBSchemaManager
     public function indexNames($tableName)
     {
         return $this->preparedQuery('
-			SELECT ind.name FROM sys.indexes ind
-			INNER JOIN sys.tables t ON ind.object_id = t.object_id
-			WHERE is_primary_key = 0 AND t.name = ? AND ind.name IS NOT NULL',
-            array($tableName)
+            SELECT ind.name FROM sys.indexes ind
+            INNER JOIN sys.tables t ON ind.object_id = t.object_id
+            WHERE is_primary_key = 0 AND t.name = ? AND ind.name IS NOT NULL',
+            [$tableName]
         )->column();
     }
 
     public function tableList()
     {
-        $tables = array();
+        $tables = [];
+
         foreach ($this->query("EXEC sp_tables @table_owner = 'dbo';") as $record) {
             $tables[strtolower($record['TABLE_NAME'])] = $record['TABLE_NAME'];
         }
+
         return $tables;
     }
 
@@ -759,6 +798,7 @@ class MSSQLSchemaManager extends DBSchemaManager
         }
 
         $defaultValue = '0';
+
         if (isset($values['default']) && is_numeric($values['default'])) {
             $defaultValue = $values['default'];
         }
@@ -909,10 +949,10 @@ class MSSQLSchemaManager extends DBSchemaManager
 
     public function hasTable($tableName)
     {
-        return (bool)$this->preparedQuery(
-            "SELECT table_name FROM information_schema.tables WHERE table_name = ?",
-            array($tableName)
-        )->value();
+        $sqlTable = str_replace('_', '\\_', $this->database->quoteString($tableName));
+        $has = $this->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = $sqlTable")->value();
+
+        return ($has && $has > 0);
     }
 
     /**
@@ -925,7 +965,7 @@ class MSSQLSchemaManager extends DBSchemaManager
      */
     public function enumValuesForField($tableName, $fieldName)
     {
-        $classes = array();
+        $classes = [];
 
         // Get the enum of all page types from the SiteTree table
         $clause = $this->getConstraintCheckClause($tableName, $fieldName);
@@ -937,11 +977,6 @@ class MSSQLSchemaManager extends DBSchemaManager
     }
 
     /**
-     * This is a lookup table for data types.
-     *
-     * For instance, MSSQL uses 'BIGINT', while MySQL uses 'UNSIGNED'
-     * and PostgreSQL uses 'INT'.
-     *
      * @param string $type
      * @return string
      */
@@ -950,6 +985,7 @@ class MSSQLSchemaManager extends DBSchemaManager
         $values = array(
             'unsigned integer'=>'BIGINT'
         );
+
         if (isset($values[$type])) {
             return $values[$type];
         } else {
@@ -957,8 +993,13 @@ class MSSQLSchemaManager extends DBSchemaManager
         }
     }
 
-    protected function indexKey($table, $index, $spec)
+    /**
+     * @param string $tableName
+     * @param string $indexName
+     * @param mixed $spec
+     */
+    protected function indexKey($tableName, $indexName, $spec)
     {
-        return $index;
+        return $this->buildMSSQLIndexName($tableName, $indexName);
     }
 }

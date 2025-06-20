@@ -15,40 +15,6 @@ use SilverStripe\ORM\Queries\SQLSelect;
 
 /**
  * Microsoft SQL Server 2008+ connector class.
- *
- * <h2>Connecting using Windows</h2>
- *
- * If you've got your website running on Windows, it's highly recommended you
- * use Microsoft SQL Server Driver for PHP "sqlsrv".
- *
- * A complete guide to installing a Windows IIS + PHP + SQL Server web stack can be
- * found here: http://doc.silverstripe.org/installation-on-windows-server-manual-iis
- *
- * @see http://sqlsrvphp.codeplex.com/
- *
- * <h2>Connecting using Linux or Mac OS X</h2>
- *
- * The following commands assume you used the default package manager
- * to install PHP with the operating system.
- *
- * Debian, and Ubuntu:
- * <code>apt-get install php5-sybase</code>
- *
- * Fedora, CentOS and RedHat:
- * <code>yum install php-mssql</code>
- *
- * Mac OS X (MacPorts):
- * <code>port install php5-mssql</code>
- *
- * These packages will install the mssql extension for PHP, as well
- * as FreeTDS, which will let you connect to SQL Server.
- *
- * More information available in the SilverStripe developer wiki:
- * @see http://doc.silverstripe.org/modules:mssql
- * @see http://doc.silverstripe.org/installation-on-windows-server-manual-iis
- *
- * References:
- * @see http://freetds.org
  */
 class MSSQLDatabase extends Database
 {
@@ -485,6 +451,7 @@ class MSSQLDatabase extends Database
         if (!$this->transactionNesting) {
             return false;
         }
+
         --$this->transactionNesting;
         if ($this->transactionNesting > 0) {
             $this->transactionRollback('NESTEDTRANSACTION' . $this->transactionNesting);
@@ -538,6 +505,7 @@ class MSSQLDatabase extends Database
     {
         // Any DDL discards transactions.
         $isDDL = $this->getConnector()->isQueryDDL($sql);
+
         if ($isDDL) {
             $this->resetTransactionNesting();
         }

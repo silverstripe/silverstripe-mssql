@@ -9,6 +9,7 @@ namespace SilverStripe\MSSQL;
  * Some important things about SQL Azure:
  *
  * Selecting a database is not supported.
+ *
  * In order to change the database currently in use, you need to connect to
  * the database using the "Database" parameter with sqlsrv_connect()
  *
@@ -16,8 +17,6 @@ namespace SilverStripe\MSSQL;
  * have two query results open at once.
  *
  * Fulltext indexes are not supported.
- *
- * @author Sean Harvey <sean at silverstripe dot com>
  */
 class MSSQLAzureDatabase extends MSSQLDatabase
 {
@@ -27,16 +26,11 @@ class MSSQLAzureDatabase extends MSSQLDatabase
      *
      * @var array
      */
-    protected $parameters = array();
+    protected $parameters = [];
 
     public function fullTextEnabled()
     {
         return false;
-    }
-
-    public function __construct($parameters)
-    {
-        $this->connectDatabase($parameters);
     }
 
     /**
@@ -63,7 +57,8 @@ class MSSQLAzureDatabase extends MSSQLDatabase
     {
         $parameters = $this->parameters;
         $parameters['database'] = $database;
-        $parameters['multipleactiveresultsets'] = 0;
+        $parameters['returndatesasstrings'] = 1;
+        $parameters['multipleactiveresultsets'] = 1;
 
         // Ensure that driver is available (required by PDO)
         if (empty($parameters['driver'])) {
@@ -95,6 +90,7 @@ class MSSQLAzureDatabase extends MSSQLDatabase
     public function selectDatabase($name, $create = false, $errorLevel = E_USER_ERROR)
     {
         $this->fullTextEnabled = null;
+
         if (!$this->schemaManager->databaseExists($name)) {
             // Check DB creation permisson
             if (!$create) {
@@ -107,7 +103,9 @@ class MSSQLAzureDatabase extends MSSQLDatabase
             }
             $this->schemaManager->createDatabase($name);
         }
+
         $this->connectDatabase($name);
+
         return true;
     }
 }
